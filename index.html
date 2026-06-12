@@ -100,6 +100,40 @@
       justify-content: flex-end;
     }
 
+    .chart-switcher {
+      display: flex;
+      gap: 6px;
+      padding: 5px;
+      border: 2px solid var(--green);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 5px 14px rgba(31, 78, 70, 0.12);
+    }
+
+    .chart-switcher a {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 15px;
+      border-radius: 5px;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 900;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .chart-switcher a:hover {
+      background: var(--green-soft);
+    }
+
+    .chart-switcher a[aria-current="page"] {
+      color: #fff;
+      background: var(--green);
+    }
+
+
     .btn {
       min-height: 36px;
       padding: 0 12px;
@@ -430,6 +464,14 @@
         flex: 1 1 auto;
       }
 
+      .chart-switcher {
+        width: 100%;
+      }
+
+      .chart-switcher a {
+        flex: 1;
+      }
+
       main {
         padding: 12px;
       }
@@ -482,6 +524,10 @@
         </div>
       </div>
       <div class="actions">
+        <nav class="chart-switcher" aria-label="Recipe charts">
+          <a href="./index.html" aria-current="page">Batch Brew</a>
+          <a href="./cold-brew-decaf.html">Cold Brew + Decaf</a>
+        </nav>
         <button class="btn secondary" id="loadToday" type="button">Load Today</button>
         <button class="btn secondary" id="exportCsv" type="button">Export CSV</button>
         <button class="btn secondary" id="printPage" type="button">Print</button>
@@ -637,7 +683,7 @@
     </main>
   </div>
 
-  <script src="./cloud-config.js"></script>
+  <script src="./cloud-config.js?v=20260612-2"></script>
   <script>
     const WATER_ML = 1000;
     const cloudConfig = window.BATCH_BREW_CLOUD || {};
