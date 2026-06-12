@@ -179,7 +179,7 @@
           <div class="panel-head">
             <h2 class="panel-title" id="historyTitle">Recent Records</h2>
             <div class="history-actions">
-              <button class="btn secondary hidden" id="undoDelete" type="button">Undo Delete</button>
+              <button class="btn secondary" id="undoDelete" type="button" disabled>Undo Delete</button>
               <button class="btn danger" id="deleteSelected" type="button" disabled>Delete Selected Date</button>
             </div>
           </div>
@@ -313,7 +313,7 @@
       setSelectedDate("");
       renderHistory(await deleteRecord(deletedDate));
       setForm({ date:deletedDate, prepTime:"07:30" });
-      undoButton.classList.remove("hidden");
+      undoButton.disabled = false;
       statusEl.textContent = `${deletedDate} was deleted. Use Undo Delete to restore it.`;
     });
     undoButton.addEventListener("click", async () => {
@@ -323,7 +323,7 @@
       setForm(restored);
       setSelectedDate(restored.date);
       lastDeletedRecord = null;
-      undoButton.classList.add("hidden");
+      undoButton.disabled = true;
       statusEl.textContent = `${restored.date} was restored.`;
     });
     document.querySelector("#exportCsv").addEventListener("click", exportCsv);
@@ -336,6 +336,18 @@
       setForm((await loadRecords()).find(item => item.date === date));
       statusEl.textContent = `${date} selected.`;
       if (event.target.closest("[data-load]")) window.scrollTo({top:0,behavior:"smooth"});
+    });
+    form.elements.date.addEventListener("change", async () => {
+      const date = form.elements.date.value;
+      const record = (await loadRecords()).find(item => item.date === date);
+      if (!record) {
+        setSelectedDate("");
+        statusEl.textContent = `No saved record for ${date}.`;
+        return;
+      }
+      setForm(record);
+      setSelectedDate(date);
+      statusEl.textContent = `${date} selected.`;
     });
     setForm({ date:todayISO(), prepTime:"07:30" });
     loadRecords().then(renderHistory).catch(() => { historyEl.innerHTML='<div class="empty">Cloud storage is not available.<br>Check the connection and try again.</div>'; });
