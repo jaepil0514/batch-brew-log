@@ -68,7 +68,9 @@
     .form-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--line); }
     .hint { color: var(--muted); font-size: 12px; line-height: 1.35; }
     .history { display: grid; }
-    .record { display: grid; grid-template-columns: 92px 1fr; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+    .record { display: grid; grid-template-columns: 92px 1fr; gap: 12px; padding: 14px 16px; border: 2px solid transparent; border-bottom-color: var(--line); background: #fff; cursor: pointer; transition: border-color 140ms ease, background 140ms ease; }
+    .record:hover { background: #f6faf9; }
+    .record.selected { border-color: var(--green); background: #edf7f4; }
     .record-date { font-weight: 900; }
     .record-time { margin-top: 4px; color: var(--muted); font-size: 12px; }
     .record-body { display: grid; gap: 8px; }
@@ -80,6 +82,9 @@
     .mini-meta { margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
     .empty { padding: 26px 16px; color: var(--muted); text-align: center; line-height: 1.5; }
     .status { min-height: 18px; margin: 0; color: var(--green); font-size: 12px; font-weight: 800; }
+    .history-actions { display: flex; align-items: center; gap: 8px; }
+    .btn:disabled { cursor: not-allowed; opacity: .45; }
+    .hidden { display: none; }
     @media (max-width:1080px) { .workspace { grid-template-columns: 1fr; } .summary-band { grid-template-columns: repeat(2,minmax(0,1fr)); } }
     @media (max-width:760px) {
       .topbar { align-items: flex-start; flex-direction: column; }
@@ -171,7 +176,13 @@
         </section>
 
         <section class="panel" aria-labelledby="historyTitle">
-          <div class="panel-head"><h2 class="panel-title" id="historyTitle">Recent Records</h2><button class="btn danger" id="deleteSelected" type="button">Delete Selected Date</button></div>
+          <div class="panel-head">
+            <h2 class="panel-title" id="historyTitle">Recent Records</h2>
+            <div class="history-actions">
+              <button class="btn secondary hidden" id="undoDelete" type="button">Undo Delete</button>
+              <button class="btn danger" id="deleteSelected" type="button" disabled>Delete Selected Date</button>
+            </div>
+          </div>
           <div class="history" id="history"></div>
         </section>
       </div>
@@ -186,6 +197,10 @@
     const form = document.querySelector("#recipeForm");
     const historyEl = document.querySelector("#history");
     const statusEl = document.querySelector("#status");
+    const deleteButton = document.querySelector("#deleteSelected");
+    const undoButton = document.querySelector("#undoDelete");
+    let selectedDate = "";
+    let lastDeletedRecord = null;
     const fields = [
       "date", "prepTime", "barista",
       "coldOrigin", "coldNotes", "coldEk", "coldCoffee", "coldWater", "coldSteep", "coldStart", "coldFinish", "coldServe", "coldTaste", "coldEkAdjust", "coldGrindAdjust",
@@ -234,6 +249,15 @@
       if (!form.elements.prepTime.value) form.elements.prepTime.value = "07:30";
       statusEl.textContent = "";
     }
+    function setSelectedDate(date) {
+      selectedDate = date || "";
+      deleteButton.disabled = !selectedDate;
+      historyEl.querySelectorAll(".record").forEach(card => {
+        const isSelected = card.dataset.date === selectedDate;
+        card.classList.toggle("selected", isSelected);
+        card.setAttribute("aria-selected", String(isSelected));
+      });
+    }
     function short(value, fallback = "-") { return value && String(value).trim() ? String(value).trim() : fallback; }
     function escapeHtml(value) {
       return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -252,14 +276,14 @@
         return;
       }
       historyEl.innerHTML = records.map(record => `
-        <article class="record">
+        <article class="record${record.date === selectedDate ? " selected" : ""}" data-date="${escapeHtml(record.date)}" role="option" aria-selected="${record.date === selectedDate}">
           <div><div class="record-date">${escapeHtml(record.date)}</div><div class="record-time">${escapeHtml(short(record.prepTime))}<br>${escapeHtml(short(record.barista, "barista -"))}</div></div>
           <div class="record-body">
             <div class="record-recipes">
               <div class="mini"><div class="mini-title"><span>Cold Brew</span><span>${escapeHtml(ratio(record.coldCoffee, record.coldWater))}</span></div><div class="mini-origin">${escapeHtml(short(record.coldOrigin))}</div><div class="mini-meta">EK ${escapeHtml(short(record.coldEk))} · ${escapeHtml(short(record.coldCoffee,"0"))} g / ${escapeHtml(short(record.coldWater,"0"))} ml</div><div class="mini-meta">Steep: ${escapeHtml(short(record.coldSteep))} hr · QC: ${escapeHtml(short(record.coldTaste))}</div></div>
               <div class="mini"><div class="mini-title"><span>Decaf</span><span>Roast ${escapeHtml(short(record.decafRoastDate))}</span></div><div class="mini-origin">EK ${escapeHtml(short(record.decafEk))}</div><div class="mini-meta">Dose ${escapeHtml(short(record.decafDose,"0"))} g · Yield ${escapeHtml(short(record.decafYield,"0"))} g</div></div>
             </div>
-            <button class="btn secondary" type="button" data-load="${escapeHtml(record.date)}">Load This Date</button>
+            <button class="btn secondary" type="button" data-load="${escapeHtml(record.date)}">Select & Load</button>
           </div>
         </article>`).join("");
     }
@@ -278,12 +302,41 @@
       try { renderHistory(await saveRecord(getFormData())); statusEl.textContent = "Saved to cloud."; }
       catch { statusEl.textContent = "Could not save. Check the internet connection."; }
     });
-    document.querySelector("#clearForm").addEventListener("click", () => setForm({ date:todayISO(), prepTime:"07:30" }));
-    document.querySelector("#loadToday").addEventListener("click", async () => { const date=todayISO(); const record=(await loadRecords()).find(item => item.date === date); setForm(record || { date, prepTime:"07:30" }); });
-    document.querySelector("#deleteSelected").addEventListener("click", async () => { const date=form.elements.date.value; if (!date) return; renderHistory(await deleteRecord(date)); setForm({ date, prepTime:"07:30" }); statusEl.textContent="Record deleted."; });
+    document.querySelector("#clearForm").addEventListener("click", () => { setSelectedDate(""); setForm({ date:todayISO(), prepTime:"07:30" }); });
+    document.querySelector("#loadToday").addEventListener("click", async () => { const date=todayISO(); const record=(await loadRecords()).find(item => item.date === date); setForm(record || { date, prepTime:"07:30" }); setSelectedDate(record ? date : ""); });
+    deleteButton.addEventListener("click", async () => {
+      if (!selectedDate) return;
+      const records = await loadRecords();
+      lastDeletedRecord = records.find(item => item.date === selectedDate) || null;
+      if (!lastDeletedRecord) { statusEl.textContent = "The selected record could not be found."; return; }
+      const deletedDate = selectedDate;
+      setSelectedDate("");
+      renderHistory(await deleteRecord(deletedDate));
+      setForm({ date:deletedDate, prepTime:"07:30" });
+      undoButton.classList.remove("hidden");
+      statusEl.textContent = `${deletedDate} was deleted. Use Undo Delete to restore it.`;
+    });
+    undoButton.addEventListener("click", async () => {
+      if (!lastDeletedRecord) return;
+      const restored = lastDeletedRecord;
+      renderHistory(await saveRecord(restored));
+      setForm(restored);
+      setSelectedDate(restored.date);
+      lastDeletedRecord = null;
+      undoButton.classList.add("hidden");
+      statusEl.textContent = `${restored.date} was restored.`;
+    });
     document.querySelector("#exportCsv").addEventListener("click", exportCsv);
     document.querySelector("#printPage").addEventListener("click", () => window.print());
-    historyEl.addEventListener("click", async event => { const button=event.target.closest("[data-load]"); if (!button) return; setForm((await loadRecords()).find(item => item.date === button.dataset.load)); window.scrollTo({top:0,behavior:"smooth"}); });
+    historyEl.addEventListener("click", async event => {
+      const card = event.target.closest("[data-date]");
+      if (!card) return;
+      const date = card.dataset.date;
+      setSelectedDate(date);
+      setForm((await loadRecords()).find(item => item.date === date));
+      statusEl.textContent = `${date} selected.`;
+      if (event.target.closest("[data-load]")) window.scrollTo({top:0,behavior:"smooth"});
+    });
     setForm({ date:todayISO(), prepTime:"07:30" });
     loadRecords().then(renderHistory).catch(() => { historyEl.innerHTML='<div class="empty">Cloud storage is not available.<br>Check the connection and try again.</div>'; });
   </script>
