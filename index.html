@@ -703,7 +703,7 @@
           <div class="panel-head">
             <h2 class="panel-title" id="historyTitle">Recent Records</h2>
             <div class="history-tools">
-              <button class="btn secondary hidden" id="undoDelete" type="button">Undo Delete</button>
+              <button class="btn secondary" id="undoDelete" type="button" disabled>Undo Delete</button>
               <button class="btn danger" id="deleteSelected" type="button" disabled>Delete Selected Date</button>
             </div>
           </div>
@@ -992,7 +992,7 @@
       setSelectedRecord("");
       renderHistory(await deleteRecord(deletedDate));
       setForm({ date: deletedDate, brewTime: "07:30" });
-      undoButton.classList.remove("hidden");
+      undoButton.disabled = false;
       deleteStatus.textContent = `${deletedDate} was deleted. Use Undo Delete to restore it.`;
     });
     undoButton.addEventListener("click", async () => {
@@ -1002,7 +1002,7 @@
       setForm(restored);
       setSelectedRecord(restored.date);
       lastDeletedRecord = null;
-      undoButton.classList.add("hidden");
+      undoButton.disabled = true;
       deleteStatus.textContent = `${restored.date} was restored.`;
     });
     historyEl.addEventListener("click", async (event) => {
@@ -1014,6 +1014,17 @@
       setForm(record);
       deleteStatus.textContent = `${date} selected.`;
       if (event.target.closest("[data-load]")) window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    form.elements.date.addEventListener("change", async () => {
+      const date = form.elements.date.value;
+      const record = (await loadRecords()).find((item) => item.date === date);
+      if (!record) {
+        setSelectedRecord("");
+        deleteStatus.textContent = `No saved record for ${date}.`;
+        return;
+      }
+      setForm(record);
+      setSelectedRecord(date);
     });
 
     setForm({ date: todayISO(), brewTime: "07:30" });
