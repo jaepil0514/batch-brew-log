@@ -1,0 +1,907 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Batch Brew Recipe Chart</title>
+  <style>
+    :root {
+      --ink: #20302d;
+      --muted: #64716d;
+      --line: #c7d7d2;
+      --paper: #fbfdfc;
+      --panel: #ffffff;
+      --green: #1f4e46;
+      --green-soft: #dceee9;
+      --gold: #f5e3aa;
+      --gold-soft: #fff8e2;
+      --alert: #a8562a;
+      --shadow: 0 18px 45px rgba(31, 78, 70, 0.12);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 22px;
+      background: rgba(251, 253, 252, 0.92);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      color: #fff;
+      background: var(--green);
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      min-height: 36px;
+      padding: 0 12px;
+      border-radius: 8px;
+      color: #fff;
+      background: var(--green);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .btn.secondary {
+      color: var(--ink);
+      background: #eaf2f0;
+      border: 1px solid var(--line);
+    }
+
+    .summary-band {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .metric {
+      padding: 14px 22px;
+      background: #fff;
+    }
+
+    .metric-label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .metric-value {
+      margin-top: 4px;
+      display: block;
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    main {
+      width: min(1500px, 100%);
+      margin: 0 auto;
+      padding: 22px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #f4f8f7;
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .date-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .batch-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--line);
+    }
+
+    .batch {
+      background: #fff;
+    }
+
+    .batch-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px 16px;
+      background: var(--green-soft);
+    }
+
+    .batch:nth-child(2) .batch-head {
+      background: var(--gold);
+    }
+
+    .batch-name {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .fixed-water {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .field.wide {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 140ms ease, box-shadow 140ms ease;
+    }
+
+    input {
+      height: 38px;
+      padding: 0 10px;
+    }
+
+    textarea {
+      min-height: 72px;
+      resize: vertical;
+      padding: 10px;
+      line-height: 1.35;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(31, 78, 70, 0.14);
+    }
+
+    .readonly {
+      background: #f3f8f6;
+      font-weight: 800;
+    }
+
+    .ratio {
+      display: flex;
+      align-items: center;
+      height: 38px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--gold-soft);
+      font-weight: 900;
+    }
+
+    .form-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-top: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .history-tools {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .history {
+      display: grid;
+    }
+
+    .record {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .record:last-child {
+      border-bottom: 0;
+    }
+
+    .record-date {
+      font-weight: 900;
+      line-height: 1.2;
+    }
+
+    .record-time {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .record-body {
+      display: grid;
+      gap: 8px;
+    }
+
+    .record-batches {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .mini {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfdfc;
+      min-width: 0;
+    }
+
+    .mini:nth-child(2) {
+      background: #fffaf0;
+    }
+
+    .mini-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .mini-origin {
+      margin-top: 8px;
+      font-size: 14px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .mini-meta {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+
+    .empty {
+      padding: 26px 16px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .danger {
+      color: #fff;
+      background: var(--alert);
+    }
+
+    @media (max-width: 1080px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-band {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .actions {
+        width: 100%;
+        justify-content: stretch;
+      }
+
+      .actions .btn {
+        flex: 1 1 auto;
+      }
+
+      main {
+        padding: 12px;
+      }
+
+      .date-row,
+      .batch-grid,
+      .fields,
+      .record-batches {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-band {
+        grid-template-columns: 1fr;
+      }
+
+      .record {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      .topbar,
+      .form-foot,
+      .history-tools {
+        display: none;
+      }
+
+      body {
+        background: #fff;
+      }
+
+      main {
+        padding: 0;
+      }
+
+      .panel {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">BB</div>
+        <div>
+          <h1>Batch Brew Recipe Chart</h1>
+          <p class="subtitle">2 batch daily recipe log for cafe service</p>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" id="loadToday" type="button">Load Today</button>
+        <button class="btn secondary" id="exportCsv" type="button">Export CSV</button>
+        <button class="btn secondary" id="printPage" type="button">Print</button>
+      </div>
+    </header>
+
+    <section class="summary-band" aria-label="Summary">
+      <div class="metric">
+        <span class="metric-label">Saved Records</span>
+        <span class="metric-value" id="totalRecords">0</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Latest Batch 1</span>
+        <span class="metric-value" id="latestBatchOne">-</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Latest Batch 2</span>
+        <span class="metric-value" id="latestBatchTwo">-</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Fixed Water</span>
+        <span class="metric-value">1000 ml</span>
+      </div>
+    </section>
+
+    <main>
+      <div class="workspace">
+        <section class="panel" aria-labelledby="formTitle">
+          <div class="panel-head">
+            <h2 class="panel-title" id="formTitle">Today's Batch Brew Log</h2>
+          </div>
+
+          <form id="recipeForm">
+            <div class="date-row">
+              <div class="field">
+                <label for="date">Date</label>
+                <input id="date" name="date" type="date" required>
+              </div>
+              <div class="field">
+                <label for="brewTime">Brew Time</label>
+                <input id="brewTime" name="brewTime" type="time" value="07:30">
+              </div>
+              <div class="field">
+                <label for="barista">Barista</label>
+                <input id="barista" name="barista" type="text" placeholder="Name">
+              </div>
+            </div>
+
+            <div class="batch-grid">
+              <section class="batch" aria-labelledby="batchOneTitle">
+                <div class="batch-head">
+                  <h3 class="batch-name" id="batchOneTitle">Batch 1</h3>
+                  <span class="fixed-water">Water 1000 ml</span>
+                </div>
+                <div class="fields">
+                  <div class="field wide">
+                    <label for="b1Origin">Origin / Lot</label>
+                    <input id="b1Origin" name="b1Origin" type="text" placeholder="e.g. Ethiopia Gedeb Washed">
+                  </div>
+                  <div class="field wide">
+                    <label for="b1Notes">Original Bean Cup Notes</label>
+                    <textarea id="b1Notes" name="b1Notes" placeholder="e.g. jasmine, peach, black tea"></textarea>
+                  </div>
+                  <div class="field">
+                    <label for="b1Ek">EK Size</label>
+                    <input id="b1Ek" name="b1Ek" type="text" placeholder="e.g. 9.5">
+                  </div>
+                  <div class="field">
+                    <label for="b1Coffee">Coffee (g)</label>
+                    <input id="b1Coffee" name="b1Coffee" type="number" min="1" step="0.1" placeholder="e.g. 60">
+                  </div>
+                  <div class="field">
+                    <label>Ratio</label>
+                    <div class="ratio" id="b1Ratio">-</div>
+                  </div>
+                  <div class="field">
+                    <label for="b1Taste">Taste / QC</label>
+                    <input id="b1Taste" name="b1Taste" type="text" placeholder="e.g. clean, slightly thin">
+                  </div>
+                  <div class="field">
+                    <label for="b1EkAdjust">EK Size Adjustment</label>
+                    <input id="b1EkAdjust" name="b1EkAdjust" type="text" placeholder="e.g. +0.25 finer">
+                  </div>
+                  <div class="field">
+                    <label for="b1GrindAdjust">Coffee Grind Adjustment</label>
+                    <input id="b1GrindAdjust" name="b1GrindAdjust" type="text" placeholder="e.g. grind slightly finer">
+                  </div>
+                </div>
+              </section>
+
+              <section class="batch" aria-labelledby="batchTwoTitle">
+                <div class="batch-head">
+                  <h3 class="batch-name" id="batchTwoTitle">Batch 2</h3>
+                  <span class="fixed-water">Water 1000 ml</span>
+                </div>
+                <div class="fields">
+                  <div class="field wide">
+                    <label for="b2Origin">Origin / Lot</label>
+                    <input id="b2Origin" name="b2Origin" type="text" placeholder="e.g. Colombia Huila Natural">
+                  </div>
+                  <div class="field wide">
+                    <label for="b2Notes">Original Bean Cup Notes</label>
+                    <textarea id="b2Notes" name="b2Notes" placeholder="e.g. berry, cacao, syrupy"></textarea>
+                  </div>
+                  <div class="field">
+                    <label for="b2Ek">EK Size</label>
+                    <input id="b2Ek" name="b2Ek" type="text" placeholder="e.g. 10.0">
+                  </div>
+                  <div class="field">
+                    <label for="b2Coffee">Coffee (g)</label>
+                    <input id="b2Coffee" name="b2Coffee" type="number" min="1" step="0.1" placeholder="e.g. 62">
+                  </div>
+                  <div class="field">
+                    <label>Ratio</label>
+                    <div class="ratio" id="b2Ratio">-</div>
+                  </div>
+                  <div class="field">
+                    <label for="b2Taste">Taste / QC</label>
+                    <input id="b2Taste" name="b2Taste" type="text" placeholder="e.g. sweet, short finish">
+                  </div>
+                  <div class="field">
+                    <label for="b2EkAdjust">EK Size Adjustment</label>
+                    <input id="b2EkAdjust" name="b2EkAdjust" type="text" placeholder="e.g. keep / +0.5">
+                  </div>
+                  <div class="field">
+                    <label for="b2GrindAdjust">Coffee Grind Adjustment</label>
+                    <input id="b2GrindAdjust" name="b2GrindAdjust" type="text" placeholder="e.g. grind slightly coarser next batch">
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div class="form-foot">
+              <p class="hint">Records are saved on the shared server for this domain. Saving the same date again updates that date's record.</p>
+              <div class="actions">
+                <button class="btn secondary" id="clearForm" type="button">Clear Form</button>
+                <button class="btn" type="submit">Save Record</button>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel" aria-labelledby="historyTitle">
+          <div class="panel-head">
+            <h2 class="panel-title" id="historyTitle">Recent Records</h2>
+            <div class="history-tools">
+              <button class="btn secondary" id="deleteSelected" type="button">Delete Selected Date</button>
+            </div>
+          </div>
+          <div class="history" id="history"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="./cloud-config.js"></script>
+  <script>
+    const WATER_ML = 1000;
+    const cloudConfig = window.BATCH_BREW_CLOUD || {};
+    const storageMode = cloudConfig.mode || (cloudConfig.supabaseUrl && cloudConfig.supabaseAnonKey ? "supabase" : "server");
+    const form = document.querySelector("#recipeForm");
+    const historyEl = document.querySelector("#history");
+    const dateInput = document.querySelector("#date");
+    const b1Coffee = document.querySelector("#b1Coffee");
+    const b2Coffee = document.querySelector("#b2Coffee");
+    const b1Ratio = document.querySelector("#b1Ratio");
+    const b2Ratio = document.querySelector("#b2Ratio");
+
+    const fields = [
+      "date", "brewTime", "barista",
+      "b1Origin", "b1Notes", "b1Ek", "b1Coffee", "b1Taste", "b1EkAdjust", "b1GrindAdjust",
+      "b2Origin", "b2Notes", "b2Ek", "b2Coffee", "b2Taste", "b2EkAdjust", "b2GrindAdjust"
+    ];
+
+    function todayISO() {
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+    }
+
+    function requestJson(url, options = {}) {
+      return new Promise((resolve, reject) => {
+        const request = new XMLHttpRequest();
+        request.open(options.method || "GET", url);
+        request.setRequestHeader("Accept", "application/json");
+        if (options.body) request.setRequestHeader("Content-Type", "application/json");
+        request.onload = () => {
+          if (request.status < 200 || request.status >= 300) {
+            reject(new Error(request.responseText || "Request failed."));
+            return;
+          }
+          try {
+            resolve(request.responseText ? JSON.parse(request.responseText) : null);
+          } catch {
+            reject(new Error("Invalid JSON response."));
+          }
+        };
+        request.onerror = () => reject(new Error("Network request failed."));
+        request.send(options.body || null);
+      });
+    }
+
+    function supabaseHeaders() {
+      return {
+        apikey: cloudConfig.supabaseAnonKey,
+        Authorization: `Bearer ${cloudConfig.supabaseAnonKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      };
+    }
+
+    function supabaseBaseUrl() {
+      return `${cloudConfig.supabaseUrl.replace(/\/$/, "")}/rest/v1/${cloudConfig.table || "batch_brew_records"}`;
+    }
+
+    function recordFromRow(row) {
+      return row?.payload || null;
+    }
+
+    async function loadCloudRecords() {
+      const response = await fetch(`${supabaseBaseUrl()}?select=payload&order=record_date.asc`, {
+        headers: supabaseHeaders()
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const rows = await response.json();
+      return rows.map(recordFromRow).filter(Boolean);
+    }
+
+    async function saveCloudRecord(record) {
+      const nextRecord = { ...record, waterMl: WATER_ML, updatedAt: new Date().toISOString() };
+      const response = await fetch(`${supabaseBaseUrl()}?on_conflict=record_date`, {
+        method: "POST",
+        headers: { ...supabaseHeaders(), Prefer: "resolution=merge-duplicates" },
+        body: JSON.stringify({
+          record_date: nextRecord.date,
+          payload: nextRecord,
+          updated_at: nextRecord.updatedAt
+        })
+      });
+      if (!response.ok) throw new Error(await response.text());
+      return loadCloudRecords();
+    }
+
+    async function deleteCloudRecord(date) {
+      const response = await fetch(`${supabaseBaseUrl()}?record_date=eq.${encodeURIComponent(date)}`, {
+        method: "DELETE",
+        headers: supabaseHeaders()
+      });
+      if (!response.ok) throw new Error(await response.text());
+      return loadCloudRecords();
+    }
+
+    async function loadRecords() {
+      return storageMode === "supabase" ? loadCloudRecords() : requestJson("/api/records");
+    }
+
+    async function saveRecord(record) {
+      if (storageMode === "supabase") return saveCloudRecord(record);
+      return requestJson("/api/records", {
+        method: "POST",
+        body: JSON.stringify(record)
+      });
+    }
+
+    async function deleteRecord(date) {
+      if (storageMode === "supabase") return deleteCloudRecord(date);
+      return requestJson(`/api/records/${encodeURIComponent(date)}`, { method: "DELETE" });
+    }
+
+    function ratioText(coffee) {
+      const dose = Number(coffee);
+      if (!dose || dose <= 0) return "-";
+      return `1:${(WATER_ML / dose).toFixed(1)}`;
+    }
+
+    function updateRatios() {
+      b1Ratio.textContent = ratioText(b1Coffee.value);
+      b2Ratio.textContent = ratioText(b2Coffee.value);
+    }
+
+    function formData() {
+      const data = {};
+      for (const key of fields) {
+        data[key] = form.elements[key].value.trim();
+      }
+      data.waterMl = WATER_ML;
+      data.updatedAt = new Date().toISOString();
+      return data;
+    }
+
+    function setForm(record) {
+      for (const key of fields) {
+        form.elements[key].value = record?.[key] || "";
+      }
+      if (!form.elements.date.value) form.elements.date.value = todayISO();
+      if (!form.elements.brewTime.value) form.elements.brewTime.value = "07:30";
+      updateRatios();
+    }
+
+    function short(value, fallback = "-") {
+      return value && value.trim() ? value.trim() : fallback;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function renderHistory(records) {
+      records = [...records].sort((a, b) => b.date.localeCompare(a.date));
+      document.querySelector("#totalRecords").textContent = records.length;
+      document.querySelector("#latestBatchOne").textContent = short(records[0]?.b1Origin);
+      document.querySelector("#latestBatchTwo").textContent = short(records[0]?.b2Origin);
+
+      if (!records.length) {
+        historyEl.innerHTML = "<div class=\"empty\">No records saved yet.<br>Enter today's batch information and save the record.</div>";
+        return;
+      }
+
+      historyEl.innerHTML = records.map((record) => `
+        <article class="record">
+          <div>
+            <div class="record-date">${escapeHtml(record.date)}</div>
+            <div class="record-time">${escapeHtml(short(record.brewTime))} · ${escapeHtml(short(record.barista, "barista -"))}</div>
+          </div>
+          <div class="record-body">
+            <div class="record-batches">
+              ${miniBatch("Batch 1", record.b1Origin, record.b1Ek, record.b1Coffee, record.b1Taste, record.b1EkAdjust, record.b1GrindAdjust)}
+              ${miniBatch("Batch 2", record.b2Origin, record.b2Ek, record.b2Coffee, record.b2Taste, record.b2EkAdjust, record.b2GrindAdjust)}
+            </div>
+            <button class="btn secondary" type="button" data-load="${record.date}">Load This Date</button>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function miniBatch(name, origin, ek, coffee, taste, ekAdjust, grindAdjust) {
+      return `
+        <div class="mini">
+          <div class="mini-title"><span>${escapeHtml(name)}</span><span>${escapeHtml(ratioText(coffee))}</span></div>
+          <div class="mini-origin">${escapeHtml(short(origin))}</div>
+          <div class="mini-meta">EK ${escapeHtml(short(ek))} · ${escapeHtml(short(coffee, "0"))} g / ${WATER_ML} ml</div>
+          <div class="mini-meta">QC: ${escapeHtml(short(taste))}</div>
+          <div class="mini-meta">EK adj: ${escapeHtml(short(ekAdjust))}</div>
+          <div class="mini-meta">Grind adj: ${escapeHtml(short(grindAdjust))}</div>
+        </div>
+      `;
+    }
+
+    async function upsertRecord(record) {
+      const records = await saveRecord(record);
+      return records;
+    }
+
+    function csvEscape(value) {
+      return `"${String(value ?? "").replaceAll('"', '""')}"`;
+    }
+
+    async function exportCsv() {
+      const records = (await loadRecords()).sort((a, b) => a.date.localeCompare(b.date));
+      const headers = [
+        "Date", "Brew Time", "Barista",
+        "B1 Origin", "B1 Cup Notes", "B1 EK Size", "B1 Coffee g", "B1 Water ml", "B1 Ratio", "B1 Taste QC", "B1 EK Size Adjustment", "B1 Coffee Grind Adjustment",
+        "B2 Origin", "B2 Cup Notes", "B2 EK Size", "B2 Coffee g", "B2 Water ml", "B2 Ratio", "B2 Taste QC", "B2 EK Size Adjustment", "B2 Coffee Grind Adjustment"
+      ];
+      const rows = records.map((r) => [
+        r.date, r.brewTime, r.barista,
+        r.b1Origin, r.b1Notes, r.b1Ek, r.b1Coffee, WATER_ML, ratioText(r.b1Coffee), r.b1Taste, r.b1EkAdjust, r.b1GrindAdjust,
+        r.b2Origin, r.b2Notes, r.b2Ek, r.b2Coffee, WATER_ML, ratioText(r.b2Coffee), r.b2Taste, r.b2EkAdjust, r.b2GrindAdjust
+      ]);
+      const csv = [headers, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `batch-brew-records-${todayISO()}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const records = await upsertRecord(formData());
+      renderHistory(records);
+    });
+
+    b1Coffee.addEventListener("input", updateRatios);
+    b2Coffee.addEventListener("input", updateRatios);
+
+    document.querySelector("#clearForm").addEventListener("click", () => setForm({ date: todayISO(), brewTime: "07:30" }));
+    document.querySelector("#loadToday").addEventListener("click", async () => {
+      const today = todayISO();
+      const record = (await loadRecords()).find((item) => item.date === today);
+      setForm(record || { date: today, brewTime: "07:30" });
+    });
+    document.querySelector("#exportCsv").addEventListener("click", exportCsv);
+    document.querySelector("#printPage").addEventListener("click", () => window.print());
+    document.querySelector("#deleteSelected").addEventListener("click", async () => {
+      const selectedDate = dateInput.value;
+      if (!selectedDate) return;
+      const records = await deleteRecord(selectedDate);
+      renderHistory(records);
+      setForm({ date: selectedDate, brewTime: "07:30" });
+    });
+    historyEl.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-load]");
+      if (!button) return;
+      const record = (await loadRecords()).find((item) => item.date === button.dataset.load);
+      setForm(record);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    setForm({ date: todayISO(), brewTime: "07:30" });
+    loadRecords().then(renderHistory).catch(() => {
+      historyEl.innerHTML = '<div class="empty">Cloud storage is not available.<br>Check cloud-config.js and the Supabase table setup.</div>';
+    });
+  </script>
+</body>
+</html>
