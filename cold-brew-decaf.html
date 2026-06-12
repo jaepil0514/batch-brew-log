@@ -34,8 +34,9 @@
     h1 { margin: 0; font-size: 18px; line-height: 1.2; }
     .subtitle { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
     .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-    .page-nav { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: #eef5f3; }
-    .page-nav a { padding: 7px 10px; border-radius: 6px; color: var(--muted); font-size: 12px; font-weight: 800; text-decoration: none; white-space: nowrap; }
+    .page-nav { display: flex; gap: 6px; padding: 5px; border: 2px solid var(--green); border-radius: 8px; background: #fff; box-shadow: 0 5px 14px rgba(31,78,70,.12); }
+    .page-nav a { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; padding: 0 15px; border-radius: 5px; color: var(--green); font-size: 13px; font-weight: 900; text-decoration: none; white-space: nowrap; }
+    .page-nav a:hover { background: var(--mint); }
     .page-nav a[aria-current="page"] { color: #fff; background: var(--green); }
     .btn { min-height: 36px; padding: 0 12px; border-radius: 8px; color: #fff; background: var(--green); font-weight: 700; white-space: nowrap; }
     .btn.secondary { color: var(--ink); background: #eaf2f0; border: 1px solid var(--line); }
@@ -154,18 +155,10 @@
               <section class="recipe" aria-labelledby="decafTitle">
                 <div class="recipe-head"><h3 class="recipe-name" id="decafTitle">Decaf</h3><span class="tag">Daily Service Recipe</span></div>
                 <div class="fields">
-                  <div class="field wide"><label for="decafOrigin">Origin / Lot</label><input id="decafOrigin" name="decafOrigin" type="text" placeholder="e.g. Colombia Sugarcane Decaf"></div>
-                  <div class="field wide"><label for="decafNotes">Original Bean Cup Notes</label><textarea id="decafNotes" name="decafNotes" placeholder="e.g. caramel, red apple, cacao"></textarea></div>
-                  <div class="field"><label for="decafMethod">Brew Method</label><select id="decafMethod" name="decafMethod"><option value="">Select</option><option>Batch Brew</option><option>Pour Over</option><option>Espresso</option><option>Other</option></select></div>
-                  <div class="field"><label for="decafEk">EK Size</label><input id="decafEk" name="decafEk" type="text" placeholder="e.g. 9.5"></div>
-                  <div class="field"><label for="decafCoffee">Coffee (g)</label><input id="decafCoffee" name="decafCoffee" type="number" min="0" step="0.1" placeholder="e.g. 60"></div>
-                  <div class="field"><label for="decafWater">Water (ml)</label><input id="decafWater" name="decafWater" type="number" min="0" step="1" placeholder="e.g. 1000"></div>
-                  <div class="field"><label for="decafBrewTime">Brew Time</label><input id="decafBrewTime" name="decafBrewTime" type="text" placeholder="e.g. 4:30"></div>
-                  <div class="field"><label for="decafYield">Final Yield</label><input id="decafYield" name="decafYield" type="text" placeholder="e.g. 900 ml"></div>
-                  <div class="field wide"><label for="decafTaste">Taste / QC</label><textarea id="decafTaste" name="decafTaste" placeholder="e.g. sweet, balanced, slightly dry finish"></textarea></div>
-                  <div class="field"><label for="decafEkAdjust">EK Size Adjustment</label><input id="decafEkAdjust" name="decafEkAdjust" type="text" placeholder="e.g. -0.25 finer"></div>
-                  <div class="field"><label for="decafGrindAdjust">Coffee Grind Adjustment</label><input id="decafGrindAdjust" name="decafGrindAdjust" type="text" placeholder="e.g. grind slightly finer"></div>
-                  <div class="field wide"><label for="decafExtra">Additional Adjustments</label><input id="decafExtra" name="decafExtra" type="text" placeholder="e.g. increase dose by 1 g tomorrow"></div>
+                  <div class="field wide"><label for="decafRoastDate">Roast Date</label><input id="decafRoastDate" name="decafRoastDate" type="date"></div>
+                  <div class="field wide"><label for="decafEk">EK Grind Size</label><input id="decafEk" name="decafEk" type="text" placeholder="e.g. 9.5"></div>
+                  <div class="field"><label for="decafDose">Dose (g)</label><input id="decafDose" name="decafDose" type="number" min="0" step="0.1" placeholder="e.g. 20"></div>
+                  <div class="field"><label for="decafYield">Yield (g)</label><input id="decafYield" name="decafYield" type="number" min="0" step="0.1" placeholder="e.g. 40"></div>
                 </div>
               </section>
             </div>
@@ -196,7 +189,7 @@
     const fields = [
       "date", "prepTime", "barista",
       "coldOrigin", "coldNotes", "coldEk", "coldCoffee", "coldWater", "coldSteep", "coldStart", "coldFinish", "coldServe", "coldTaste", "coldEkAdjust", "coldGrindAdjust",
-      "decafOrigin", "decafNotes", "decafMethod", "decafEk", "decafCoffee", "decafWater", "decafBrewTime", "decafYield", "decafTaste", "decafEkAdjust", "decafGrindAdjust", "decafExtra"
+      "decafRoastDate", "decafEk", "decafDose", "decafYield"
     ];
 
     function todayISO() {
@@ -253,7 +246,7 @@
       records = [...records].sort((a,b) => b.date.localeCompare(a.date));
       document.querySelector("#totalRecords").textContent = records.length;
       document.querySelector("#latestCold").textContent = short(records[0]?.coldOrigin);
-      document.querySelector("#latestDecaf").textContent = short(records[0]?.decafOrigin);
+      document.querySelector("#latestDecaf").textContent = short(records[0]?.decafRoastDate);
       if (!records.length) {
         historyEl.innerHTML = '<div class="empty">No records saved yet.<br>Enter today\'s Cold Brew and Decaf information.</div>';
         return;
@@ -264,7 +257,7 @@
           <div class="record-body">
             <div class="record-recipes">
               <div class="mini"><div class="mini-title"><span>Cold Brew</span><span>${escapeHtml(ratio(record.coldCoffee, record.coldWater))}</span></div><div class="mini-origin">${escapeHtml(short(record.coldOrigin))}</div><div class="mini-meta">EK ${escapeHtml(short(record.coldEk))} · ${escapeHtml(short(record.coldCoffee,"0"))} g / ${escapeHtml(short(record.coldWater,"0"))} ml</div><div class="mini-meta">Steep: ${escapeHtml(short(record.coldSteep))} hr · QC: ${escapeHtml(short(record.coldTaste))}</div></div>
-              <div class="mini"><div class="mini-title"><span>Decaf</span><span>${escapeHtml(short(record.decafMethod))}</span></div><div class="mini-origin">${escapeHtml(short(record.decafOrigin))}</div><div class="mini-meta">EK ${escapeHtml(short(record.decafEk))} · ${escapeHtml(short(record.decafCoffee,"0"))} g / ${escapeHtml(short(record.decafWater,"0"))} ml</div><div class="mini-meta">Brew: ${escapeHtml(short(record.decafBrewTime))} · QC: ${escapeHtml(short(record.decafTaste))}</div></div>
+              <div class="mini"><div class="mini-title"><span>Decaf</span><span>Roast ${escapeHtml(short(record.decafRoastDate))}</span></div><div class="mini-origin">EK ${escapeHtml(short(record.decafEk))}</div><div class="mini-meta">Dose ${escapeHtml(short(record.decafDose,"0"))} g · Yield ${escapeHtml(short(record.decafYield,"0"))} g</div></div>
             </div>
             <button class="btn secondary" type="button" data-load="${escapeHtml(record.date)}">Load This Date</button>
           </div>
