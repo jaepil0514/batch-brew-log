@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!location.pathname.endsWith("/") && !location.pathname.endsWith("/index.html")) return;
   const actions = document.querySelector(".topbar .actions");
   if (!actions) return;
+  if (actions.querySelector(".chart-switcher")) return;
   const style = document.createElement("style");
   style.textContent = `
     .chart-switcher { display:flex; gap:6px; padding:5px; border:2px solid var(--green); border-radius:8px; background:#fff; box-shadow:0 5px 14px rgba(31,78,70,.12); }
