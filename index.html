@@ -361,8 +361,20 @@
       grid-template-columns: 92px 1fr;
       gap: 12px;
       padding: 14px 16px;
-      border-bottom: 1px solid var(--line);
+      border: 2px solid transparent;
+      border-bottom-color: var(--line);
       background: #fff;
+      cursor: pointer;
+      transition: border-color 140ms ease, background 140ms ease;
+    }
+
+    .record:hover {
+      background: #f6faf9;
+    }
+
+    .record.selected {
+      border-color: var(--green);
+      background: #edf7f4;
     }
 
     .record:last-child {
@@ -437,6 +449,23 @@
     .danger {
       color: #fff;
       background: var(--alert);
+    }
+
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .delete-status {
+      margin: 0;
+      padding: 8px 16px 0;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 800;
     }
 
     @media (max-width: 1080px) {
@@ -674,9 +703,11 @@
           <div class="panel-head">
             <h2 class="panel-title" id="historyTitle">Recent Records</h2>
             <div class="history-tools">
-              <button class="btn secondary" id="deleteSelected" type="button">Delete Selected Date</button>
+              <button class="btn secondary hidden" id="undoDelete" type="button">Undo Delete</button>
+              <button class="btn danger" id="deleteSelected" type="button" disabled>Delete Selected Date</button>
             </div>
           </div>
+          <p class="delete-status" id="deleteStatus" role="status">Select a record below to delete it.</p>
           <div class="history" id="history"></div>
         </section>
       </div>
@@ -690,11 +721,15 @@
     const storageMode = cloudConfig.mode || (cloudConfig.supabaseUrl && cloudConfig.supabaseAnonKey ? "supabase" : "server");
     const form = document.querySelector("#recipeForm");
     const historyEl = document.querySelector("#history");
-    const dateInput = document.querySelector("#date");
     const b1Coffee = document.querySelector("#b1Coffee");
     const b2Coffee = document.querySelector("#b2Coffee");
     const b1Ratio = document.querySelector("#b1Ratio");
     const b2Ratio = document.querySelector("#b2Ratio");
+    const deleteButton = document.querySelector("#deleteSelected");
+    const undoButton = document.querySelector("#undoDelete");
+    const deleteStatus = document.querySelector("#deleteStatus");
+    let selectedRecordDate = "";
+    let lastDeletedRecord = null;
 
     const fields = [
       "date", "brewTime", "barista",
@@ -827,6 +862,18 @@
       updateRatios();
     }
 
+    function setSelectedRecord(date) {
+      selectedRecordDate = date || "";
+      deleteButton.disabled = !selectedRecordDate;
+      historyEl.querySelectorAll(".record").forEach((card) => {
+        const isSelected = card.dataset.date === selectedRecordDate;
+        card.classList.toggle("selected", isSelected);
+        card.setAttribute("aria-selected", String(isSelected));
+      });
+      if (selectedRecordDate) deleteStatus.textContent = `${selectedRecordDate} selected.`;
+      else deleteStatus.textContent = "Select a record below to delete it.";
+    }
+
     function short(value, fallback = "-") {
       return value && value.trim() ? value.trim() : fallback;
     }
@@ -852,7 +899,7 @@
       }
 
       historyEl.innerHTML = records.map((record) => `
-        <article class="record">
+        <article class="record${record.date === selectedRecordDate ? " selected" : ""}" data-date="${escapeHtml(record.date)}" role="option" aria-selected="${record.date === selectedRecordDate}">
           <div>
             <div class="record-date">${escapeHtml(record.date)}</div>
             <div class="record-time">${escapeHtml(short(record.brewTime))} · ${escapeHtml(short(record.barista, "barista -"))}</div>
@@ -862,7 +909,7 @@
               ${miniBatch("Batch 1", record.b1Origin, record.b1Ek, record.b1Coffee, record.b1Taste, record.b1EkAdjust, record.b1GrindAdjust)}
               ${miniBatch("Batch 2", record.b2Origin, record.b2Ek, record.b2Coffee, record.b2Taste, record.b2EkAdjust, record.b2GrindAdjust)}
             </div>
-            <button class="btn secondary" type="button" data-load="${record.date}">Load This Date</button>
+            <button class="btn secondary" type="button" data-load="${record.date}">Select & Load</button>
           </div>
         </article>
       `).join("");
@@ -921,27 +968,52 @@
     b1Coffee.addEventListener("input", updateRatios);
     b2Coffee.addEventListener("input", updateRatios);
 
-    document.querySelector("#clearForm").addEventListener("click", () => setForm({ date: todayISO(), brewTime: "07:30" }));
+    document.querySelector("#clearForm").addEventListener("click", () => {
+      setSelectedRecord("");
+      setForm({ date: todayISO(), brewTime: "07:30" });
+    });
     document.querySelector("#loadToday").addEventListener("click", async () => {
       const today = todayISO();
       const record = (await loadRecords()).find((item) => item.date === today);
       setForm(record || { date: today, brewTime: "07:30" });
+      setSelectedRecord(record ? today : "");
     });
     document.querySelector("#exportCsv").addEventListener("click", exportCsv);
     document.querySelector("#printPage").addEventListener("click", () => window.print());
-    document.querySelector("#deleteSelected").addEventListener("click", async () => {
-      const selectedDate = dateInput.value;
-      if (!selectedDate) return;
-      const records = await deleteRecord(selectedDate);
-      renderHistory(records);
-      setForm({ date: selectedDate, brewTime: "07:30" });
+    deleteButton.addEventListener("click", async () => {
+      if (!selectedRecordDate) return;
+      const records = await loadRecords();
+      lastDeletedRecord = records.find((item) => item.date === selectedRecordDate) || null;
+      if (!lastDeletedRecord) {
+        deleteStatus.textContent = "The selected record could not be found.";
+        return;
+      }
+      const deletedDate = selectedRecordDate;
+      setSelectedRecord("");
+      renderHistory(await deleteRecord(deletedDate));
+      setForm({ date: deletedDate, brewTime: "07:30" });
+      undoButton.classList.remove("hidden");
+      deleteStatus.textContent = `${deletedDate} was deleted. Use Undo Delete to restore it.`;
+    });
+    undoButton.addEventListener("click", async () => {
+      if (!lastDeletedRecord) return;
+      const restored = lastDeletedRecord;
+      renderHistory(await saveRecord(restored));
+      setForm(restored);
+      setSelectedRecord(restored.date);
+      lastDeletedRecord = null;
+      undoButton.classList.add("hidden");
+      deleteStatus.textContent = `${restored.date} was restored.`;
     });
     historyEl.addEventListener("click", async (event) => {
-      const button = event.target.closest("[data-load]");
-      if (!button) return;
-      const record = (await loadRecords()).find((item) => item.date === button.dataset.load);
+      const card = event.target.closest("[data-date]");
+      if (!card) return;
+      const date = card.dataset.date;
+      setSelectedRecord(date);
+      const record = (await loadRecords()).find((item) => item.date === date);
       setForm(record);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      deleteStatus.textContent = `${date} selected.`;
+      if (event.target.closest("[data-load]")) window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
     setForm({ date: todayISO(), brewTime: "07:30" });
