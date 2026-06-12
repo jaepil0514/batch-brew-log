@@ -216,7 +216,7 @@
 
     .date-row {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
       padding: 16px;
       border-bottom: 1px solid var(--line);
@@ -599,10 +599,6 @@
                 <label for="brewTime">Brew Time</label>
                 <input id="brewTime" name="brewTime" type="time" value="07:30">
               </div>
-              <div class="field">
-                <label for="barista">Barista</label>
-                <input id="barista" name="barista" type="text" placeholder="Name">
-              </div>
             </div>
 
             <div class="batch-grid">
@@ -612,6 +608,10 @@
                   <span class="fixed-water">Water 1000 ml</span>
                 </div>
                 <div class="fields">
+                  <div class="field wide">
+                    <label for="b1Barista">Batch 1 Barista</label>
+                    <input id="b1Barista" name="b1Barista" type="text" placeholder="Name">
+                  </div>
                   <div class="field wide">
                     <label for="b1Origin">Origin / Lot</label>
                     <input id="b1Origin" name="b1Origin" type="text" placeholder="e.g. Ethiopia Gedeb Washed">
@@ -653,6 +653,10 @@
                   <span class="fixed-water">Water 1000 ml</span>
                 </div>
                 <div class="fields">
+                  <div class="field wide">
+                    <label for="b2Barista">Batch 2 Barista</label>
+                    <input id="b2Barista" name="b2Barista" type="text" placeholder="Name">
+                  </div>
                   <div class="field wide">
                     <label for="b2Origin">Origin / Lot</label>
                     <input id="b2Origin" name="b2Origin" type="text" placeholder="e.g. Colombia Huila Natural">
@@ -732,9 +736,9 @@
     let lastDeletedRecord = null;
 
     const fields = [
-      "date", "brewTime", "barista",
-      "b1Origin", "b1Notes", "b1Ek", "b1Coffee", "b1Taste", "b1EkAdjust", "b1GrindAdjust",
-      "b2Origin", "b2Notes", "b2Ek", "b2Coffee", "b2Taste", "b2EkAdjust", "b2GrindAdjust"
+      "date", "brewTime",
+      "b1Barista", "b1Origin", "b1Notes", "b1Ek", "b1Coffee", "b1Taste", "b1EkAdjust", "b1GrindAdjust",
+      "b2Barista", "b2Origin", "b2Notes", "b2Ek", "b2Coffee", "b2Taste", "b2EkAdjust", "b2GrindAdjust"
     ];
 
     function todayISO() {
@@ -855,7 +859,8 @@
 
     function setForm(record) {
       for (const key of fields) {
-        form.elements[key].value = record?.[key] || "";
+        const legacyBarista = record?.barista || "";
+        form.elements[key].value = record?.[key] || (key === "b1Barista" || key === "b2Barista" ? legacyBarista : "");
       }
       if (!form.elements.date.value) form.elements.date.value = todayISO();
       if (!form.elements.brewTime.value) form.elements.brewTime.value = "07:30";
@@ -902,12 +907,12 @@
         <article class="record${record.date === selectedRecordDate ? " selected" : ""}" data-date="${escapeHtml(record.date)}" role="option" aria-selected="${record.date === selectedRecordDate}">
           <div>
             <div class="record-date">${escapeHtml(record.date)}</div>
-            <div class="record-time">${escapeHtml(short(record.brewTime))} · ${escapeHtml(short(record.barista, "barista -"))}</div>
+            <div class="record-time">${escapeHtml(short(record.brewTime))}</div>
           </div>
           <div class="record-body">
             <div class="record-batches">
-              ${miniBatch("Batch 1", record.b1Origin, record.b1Ek, record.b1Coffee, record.b1Taste, record.b1EkAdjust, record.b1GrindAdjust)}
-              ${miniBatch("Batch 2", record.b2Origin, record.b2Ek, record.b2Coffee, record.b2Taste, record.b2EkAdjust, record.b2GrindAdjust)}
+              ${miniBatch("Batch 1", record.b1Barista || record.barista, record.b1Origin, record.b1Ek, record.b1Coffee, record.b1Taste, record.b1EkAdjust, record.b1GrindAdjust)}
+              ${miniBatch("Batch 2", record.b2Barista || record.barista, record.b2Origin, record.b2Ek, record.b2Coffee, record.b2Taste, record.b2EkAdjust, record.b2GrindAdjust)}
             </div>
             <button class="btn secondary" type="button" data-load="${record.date}">Select & Load</button>
           </div>
@@ -915,11 +920,12 @@
       `).join("");
     }
 
-    function miniBatch(name, origin, ek, coffee, taste, ekAdjust, grindAdjust) {
+    function miniBatch(name, barista, origin, ek, coffee, taste, ekAdjust, grindAdjust) {
       return `
         <div class="mini">
           <div class="mini-title"><span>${escapeHtml(name)}</span><span>${escapeHtml(ratioText(coffee))}</span></div>
           <div class="mini-origin">${escapeHtml(short(origin))}</div>
+          <div class="mini-meta">Barista: ${escapeHtml(short(barista))}</div>
           <div class="mini-meta">EK ${escapeHtml(short(ek))} · ${escapeHtml(short(coffee, "0"))} g / ${WATER_ML} ml</div>
           <div class="mini-meta">QC: ${escapeHtml(short(taste))}</div>
           <div class="mini-meta">EK adj: ${escapeHtml(short(ekAdjust))}</div>
@@ -940,14 +946,14 @@
     async function exportCsv() {
       const records = (await loadRecords()).sort((a, b) => a.date.localeCompare(b.date));
       const headers = [
-        "Date", "Brew Time", "Barista",
-        "B1 Origin", "B1 Cup Notes", "B1 EK Size", "B1 Coffee g", "B1 Water ml", "B1 Ratio", "B1 Taste QC", "B1 EK Size Adjustment", "B1 Coffee Grind Adjustment",
-        "B2 Origin", "B2 Cup Notes", "B2 EK Size", "B2 Coffee g", "B2 Water ml", "B2 Ratio", "B2 Taste QC", "B2 EK Size Adjustment", "B2 Coffee Grind Adjustment"
+        "Date", "Brew Time",
+        "B1 Barista", "B1 Origin", "B1 Cup Notes", "B1 EK Size", "B1 Coffee g", "B1 Water ml", "B1 Ratio", "B1 Taste QC", "B1 EK Size Adjustment", "B1 Coffee Grind Adjustment",
+        "B2 Barista", "B2 Origin", "B2 Cup Notes", "B2 EK Size", "B2 Coffee g", "B2 Water ml", "B2 Ratio", "B2 Taste QC", "B2 EK Size Adjustment", "B2 Coffee Grind Adjustment"
       ];
       const rows = records.map((r) => [
-        r.date, r.brewTime, r.barista,
-        r.b1Origin, r.b1Notes, r.b1Ek, r.b1Coffee, WATER_ML, ratioText(r.b1Coffee), r.b1Taste, r.b1EkAdjust, r.b1GrindAdjust,
-        r.b2Origin, r.b2Notes, r.b2Ek, r.b2Coffee, WATER_ML, ratioText(r.b2Coffee), r.b2Taste, r.b2EkAdjust, r.b2GrindAdjust
+        r.date, r.brewTime,
+        r.b1Barista || r.barista, r.b1Origin, r.b1Notes, r.b1Ek, r.b1Coffee, WATER_ML, ratioText(r.b1Coffee), r.b1Taste, r.b1EkAdjust, r.b1GrindAdjust,
+        r.b2Barista || r.barista, r.b2Origin, r.b2Notes, r.b2Ek, r.b2Coffee, WATER_ML, ratioText(r.b2Coffee), r.b2Taste, r.b2EkAdjust, r.b2GrindAdjust
       ]);
       const csv = [headers, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
