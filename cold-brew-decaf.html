@@ -50,7 +50,7 @@
     .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); overflow: hidden; }
     .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); background: #f4f8f7; }
     .panel-title { margin: 0; font-size: 15px; }
-    .date-row { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; padding: 16px; border-bottom: 1px solid var(--line); }
+    .date-row { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding: 16px; border-bottom: 1px solid var(--line); }
     .recipe-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1px; background: var(--line); }
     .recipe { background: #fff; min-width: 0; }
     .recipe-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 16px; background: var(--blue); }
@@ -135,14 +135,14 @@
             <div class="date-row">
               <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" required></div>
               <div class="field"><label for="prepTime">Preparation Time</label><input id="prepTime" name="prepTime" type="time" value="07:30"></div>
-              <div class="field"><label for="barista">Barista</label><input id="barista" name="barista" type="text" placeholder="Name"></div>
             </div>
 
             <div class="recipe-grid">
               <section class="recipe" aria-labelledby="coldTitle">
                 <div class="recipe-head"><h3 class="recipe-name" id="coldTitle">Cold Brew</h3><span class="tag">Concentrate / Ready-to-drink</span></div>
                 <div class="fields">
-                  <div class="field wide"><label for="coldOrigin">Origin / Lot</label><input id="coldOrigin" name="coldOrigin" type="text" placeholder="e.g. Brazil Cerrado Natural"></div>
+                  <div class="field wide"><label for="coldBarista">Cold Brew Barista</label><input id="coldBarista" name="coldBarista" type="text" placeholder="Name"></div>
+                  <div class="field wide"><label for="coldOrigin">Origin / Lot</label><input id="coldOrigin" name="coldOrigin" type="text" list="coldCoffeeProfiles" autocomplete="off" placeholder="Type or choose a saved coffee"></div>
                   <div class="field wide"><label for="coldNotes">Original Bean Cup Notes</label><textarea id="coldNotes" name="coldNotes" placeholder="e.g. chocolate, hazelnut, dried fruit"></textarea></div>
                   <div class="field"><label for="coldEk">EK Size</label><input id="coldEk" name="coldEk" type="text" placeholder="e.g. 12.0"></div>
                   <div class="field"><label for="coldCoffee">Coffee (g)</label><input id="coldCoffee" name="coldCoffee" type="number" min="0" step="0.1" placeholder="e.g. 250"></div>
@@ -160,6 +160,7 @@
               <section class="recipe" aria-labelledby="decafTitle">
                 <div class="recipe-head"><h3 class="recipe-name" id="decafTitle">Decaf</h3><span class="tag">Daily Service Recipe</span></div>
                 <div class="fields">
+                  <div class="field wide"><label for="decafBarista">Decaf Barista</label><input id="decafBarista" name="decafBarista" type="text" placeholder="Name"></div>
                   <div class="field wide"><label for="decafRoastDate">Roast Date</label><input id="decafRoastDate" name="decafRoastDate" type="date"></div>
                   <div class="field wide"><label for="decafEk">EK Grind Size</label><input id="decafEk" name="decafEk" type="text" placeholder="e.g. 9.5"></div>
                   <div class="field"><label for="decafDose">Dose (g)</label><input id="decafDose" name="decafDose" type="number" min="0" step="0.1" placeholder="e.g. 20"></div>
@@ -173,6 +174,7 @@
               <div class="actions"><button class="btn secondary" id="clearForm" type="button">Clear Form</button><button class="btn" type="submit">Save Record</button></div>
             </div>
           </form>
+          <datalist id="coldCoffeeProfiles"></datalist>
         </section>
 
         <section class="panel" aria-labelledby="historyTitle">
@@ -201,10 +203,11 @@
     const undoButton = document.querySelector("#undoDelete");
     let selectedDate = "";
     let lastDeletedRecord = null;
+    let coldCoffeeProfiles = new Map();
     const fields = [
-      "date", "prepTime", "barista",
-      "coldOrigin", "coldNotes", "coldEk", "coldCoffee", "coldWater", "coldSteep", "coldStart", "coldFinish", "coldServe", "coldTaste", "coldEkAdjust", "coldGrindAdjust",
-      "decafRoastDate", "decafEk", "decafDose", "decafYield"
+      "date", "prepTime",
+      "coldBarista", "coldOrigin", "coldNotes", "coldEk", "coldCoffee", "coldWater", "coldSteep", "coldStart", "coldFinish", "coldServe", "coldTaste", "coldEkAdjust", "coldGrindAdjust",
+      "decafBarista", "decafRoastDate", "decafEk", "decafDose", "decafYield"
     ];
 
     function todayISO() {
@@ -244,7 +247,8 @@
       return data;
     }
     function setForm(record) {
-      fields.forEach(key => form.elements[key].value = record?.[key] || "");
+      const legacyBarista = record?.barista || "";
+      fields.forEach(key => form.elements[key].value = record?.[key] || (key === "coldBarista" || key === "decafBarista" ? legacyBarista : ""));
       if (!form.elements.date.value) form.elements.date.value = todayISO();
       if (!form.elements.prepTime.value) form.elements.prepTime.value = "07:30";
       statusEl.textContent = "";
@@ -258,6 +262,43 @@
         card.setAttribute("aria-selected", String(isSelected));
       });
     }
+    function refreshColdCoffeeProfiles(records) {
+      coldCoffeeProfiles = new Map();
+      [...records].sort((a,b) => a.date.localeCompare(b.date)).forEach(record => {
+        const origin = String(record.coldOrigin || "").trim();
+        if (!origin) return;
+        coldCoffeeProfiles.set(origin.toLowerCase(), {
+          origin,
+          notes: record.coldNotes || "",
+          ek: record.coldEk || "",
+          coffee: record.coldCoffee || "",
+          water: record.coldWater || "",
+          steep: record.coldSteep || "",
+          serve: record.coldServe || "",
+          taste: record.coldTaste || "",
+          ekAdjust: record.coldEkAdjust || "",
+          grindAdjust: record.coldGrindAdjust || ""
+        });
+      });
+      document.querySelector("#coldCoffeeProfiles").innerHTML = [...coldCoffeeProfiles.values()]
+        .sort((a,b) => a.origin.localeCompare(b.origin))
+        .map(profile => `<option value="${escapeHtml(profile.origin)}"></option>`)
+        .join("");
+    }
+    function applyColdCoffeeProfile() {
+      const profile = coldCoffeeProfiles.get(form.elements.coldOrigin.value.trim().toLowerCase());
+      if (!profile) return;
+      form.elements.coldOrigin.value = profile.origin;
+      form.elements.coldNotes.value = profile.notes;
+      form.elements.coldEk.value = profile.ek;
+      form.elements.coldCoffee.value = profile.coffee;
+      form.elements.coldWater.value = profile.water;
+      form.elements.coldSteep.value = profile.steep;
+      form.elements.coldServe.value = profile.serve;
+      form.elements.coldTaste.value = profile.taste;
+      form.elements.coldEkAdjust.value = profile.ekAdjust;
+      form.elements.coldGrindAdjust.value = profile.grindAdjust;
+    }
     function short(value, fallback = "-") { return value && String(value).trim() ? String(value).trim() : fallback; }
     function escapeHtml(value) {
       return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -268,6 +309,7 @@
     }
     function renderHistory(records) {
       records = [...records].sort((a,b) => b.date.localeCompare(a.date));
+      refreshColdCoffeeProfiles(records);
       document.querySelector("#totalRecords").textContent = records.length;
       document.querySelector("#latestCold").textContent = short(records[0]?.coldOrigin);
       document.querySelector("#latestDecaf").textContent = short(records[0]?.decafRoastDate);
@@ -277,11 +319,11 @@
       }
       historyEl.innerHTML = records.map(record => `
         <article class="record${record.date === selectedDate ? " selected" : ""}" data-date="${escapeHtml(record.date)}" role="option" aria-selected="${record.date === selectedDate}">
-          <div><div class="record-date">${escapeHtml(record.date)}</div><div class="record-time">${escapeHtml(short(record.prepTime))}<br>${escapeHtml(short(record.barista, "barista -"))}</div></div>
+          <div><div class="record-date">${escapeHtml(record.date)}</div><div class="record-time">${escapeHtml(short(record.prepTime))}</div></div>
           <div class="record-body">
             <div class="record-recipes">
-              <div class="mini"><div class="mini-title"><span>Cold Brew</span><span>${escapeHtml(ratio(record.coldCoffee, record.coldWater))}</span></div><div class="mini-origin">${escapeHtml(short(record.coldOrigin))}</div><div class="mini-meta">EK ${escapeHtml(short(record.coldEk))} · ${escapeHtml(short(record.coldCoffee,"0"))} g / ${escapeHtml(short(record.coldWater,"0"))} ml</div><div class="mini-meta">Steep: ${escapeHtml(short(record.coldSteep))} hr · QC: ${escapeHtml(short(record.coldTaste))}</div></div>
-              <div class="mini"><div class="mini-title"><span>Decaf</span><span>Roast ${escapeHtml(short(record.decafRoastDate))}</span></div><div class="mini-origin">EK ${escapeHtml(short(record.decafEk))}</div><div class="mini-meta">Dose ${escapeHtml(short(record.decafDose,"0"))} g · Yield ${escapeHtml(short(record.decafYield,"0"))} g</div></div>
+              <div class="mini"><div class="mini-title"><span>Cold Brew</span><span>${escapeHtml(ratio(record.coldCoffee, record.coldWater))}</span></div><div class="mini-origin">${escapeHtml(short(record.coldOrigin))}</div><div class="mini-meta">Barista: ${escapeHtml(short(record.coldBarista || record.barista))}</div><div class="mini-meta">EK ${escapeHtml(short(record.coldEk))} · ${escapeHtml(short(record.coldCoffee,"0"))} g / ${escapeHtml(short(record.coldWater,"0"))} ml</div><div class="mini-meta">Steep: ${escapeHtml(short(record.coldSteep))} hr · QC: ${escapeHtml(short(record.coldTaste))}</div></div>
+              <div class="mini"><div class="mini-title"><span>Decaf</span><span>Roast ${escapeHtml(short(record.decafRoastDate))}</span></div><div class="mini-origin">EK ${escapeHtml(short(record.decafEk))}</div><div class="mini-meta">Barista: ${escapeHtml(short(record.decafBarista || record.barista))}</div><div class="mini-meta">Dose ${escapeHtml(short(record.decafDose,"0"))} g · Yield ${escapeHtml(short(record.decafYield,"0"))} g</div></div>
             </div>
             <button class="btn secondary" type="button" data-load="${escapeHtml(record.date)}">Select & Load</button>
           </div>
@@ -292,7 +334,7 @@
       const records = (await loadRecords()).sort((a,b) => a.date.localeCompare(b.date));
       const csvFields = fields;
       const labels = csvFields.map(key => key.replace(/([A-Z])/g," $1").replace(/^./,letter => letter.toUpperCase()));
-      const csv = [labels, ...records.map(record => csvFields.map(key => record[key]))].map(row => row.map(csvEscape).join(",")).join("\n");
+      const csv = [labels, ...records.map(record => csvFields.map(key => record[key] || ((key === "coldBarista" || key === "decafBarista") ? record.barista : "")))].map(row => row.map(csvEscape).join(",")).join("\n");
       const url = URL.createObjectURL(new Blob([csv], { type:"text/csv;charset=utf-8" }));
       const link = document.createElement("a"); link.href = url; link.download = `cold-brew-decaf-${todayISO()}.csv`; link.click(); URL.revokeObjectURL(url);
     }
@@ -328,6 +370,7 @@
     });
     document.querySelector("#exportCsv").addEventListener("click", exportCsv);
     document.querySelector("#printPage").addEventListener("click", () => window.print());
+    form.elements.coldOrigin.addEventListener("change", applyColdCoffeeProfile);
     historyEl.addEventListener("click", async event => {
       const card = event.target.closest("[data-date]");
       if (!card) return;
