@@ -614,7 +614,7 @@
                   </div>
                   <div class="field wide">
                     <label for="b1Origin">Origin / Lot</label>
-                    <input id="b1Origin" name="b1Origin" type="text" placeholder="e.g. Ethiopia Gedeb Washed">
+                    <input id="b1Origin" name="b1Origin" type="text" list="batchCoffeeProfiles" autocomplete="off" placeholder="Type or choose a saved coffee">
                   </div>
                   <div class="field wide">
                     <label for="b1Notes">Original Bean Cup Notes</label>
@@ -659,7 +659,7 @@
                   </div>
                   <div class="field wide">
                     <label for="b2Origin">Origin / Lot</label>
-                    <input id="b2Origin" name="b2Origin" type="text" placeholder="e.g. Colombia Huila Natural">
+                    <input id="b2Origin" name="b2Origin" type="text" list="batchCoffeeProfiles" autocomplete="off" placeholder="Type or choose a saved coffee">
                   </div>
                   <div class="field wide">
                     <label for="b2Notes">Original Bean Cup Notes</label>
@@ -701,6 +701,7 @@
               </div>
             </div>
           </form>
+          <datalist id="batchCoffeeProfiles"></datalist>
         </section>
 
         <section class="panel" aria-labelledby="historyTitle">
@@ -734,6 +735,7 @@
     const deleteStatus = document.querySelector("#deleteStatus");
     let selectedRecordDate = "";
     let lastDeletedRecord = null;
+    let coffeeProfiles = new Map();
 
     const fields = [
       "date", "brewTime",
@@ -879,6 +881,43 @@
       else deleteStatus.textContent = "Select a record below to delete it.";
     }
 
+    function refreshCoffeeProfiles(records) {
+      coffeeProfiles = new Map();
+      [...records].sort((a, b) => a.date.localeCompare(b.date)).forEach((record) => {
+        ["b1", "b2"].forEach((prefix) => {
+          const origin = String(record[`${prefix}Origin`] || "").trim();
+          if (!origin) return;
+          coffeeProfiles.set(origin.toLowerCase(), {
+            origin,
+            notes: record[`${prefix}Notes`] || "",
+            ek: record[`${prefix}Ek`] || "",
+            coffee: record[`${prefix}Coffee`] || "",
+            taste: record[`${prefix}Taste`] || "",
+            ekAdjust: record[`${prefix}EkAdjust`] || "",
+            grindAdjust: record[`${prefix}GrindAdjust`] || ""
+          });
+        });
+      });
+      document.querySelector("#batchCoffeeProfiles").innerHTML = [...coffeeProfiles.values()]
+        .sort((a, b) => a.origin.localeCompare(b.origin))
+        .map((profile) => `<option value="${escapeHtml(profile.origin)}"></option>`)
+        .join("");
+    }
+
+    function applyCoffeeProfile(prefix) {
+      const originInput = form.elements[`${prefix}Origin`];
+      const profile = coffeeProfiles.get(originInput.value.trim().toLowerCase());
+      if (!profile) return;
+      originInput.value = profile.origin;
+      form.elements[`${prefix}Notes`].value = profile.notes;
+      form.elements[`${prefix}Ek`].value = profile.ek;
+      form.elements[`${prefix}Coffee`].value = profile.coffee;
+      form.elements[`${prefix}Taste`].value = profile.taste;
+      form.elements[`${prefix}EkAdjust`].value = profile.ekAdjust;
+      form.elements[`${prefix}GrindAdjust`].value = profile.grindAdjust;
+      updateRatios();
+    }
+
     function short(value, fallback = "-") {
       return value && value.trim() ? value.trim() : fallback;
     }
@@ -894,6 +933,7 @@
 
     function renderHistory(records) {
       records = [...records].sort((a, b) => b.date.localeCompare(a.date));
+      refreshCoffeeProfiles(records);
       document.querySelector("#totalRecords").textContent = records.length;
       document.querySelector("#latestBatchOne").textContent = short(records[0]?.b1Origin);
       document.querySelector("#latestBatchTwo").textContent = short(records[0]?.b2Origin);
@@ -973,6 +1013,8 @@
 
     b1Coffee.addEventListener("input", updateRatios);
     b2Coffee.addEventListener("input", updateRatios);
+    form.elements.b1Origin.addEventListener("change", () => applyCoffeeProfile("b1"));
+    form.elements.b2Origin.addEventListener("change", () => applyCoffeeProfile("b2"));
 
     document.querySelector("#clearForm").addEventListener("click", () => {
       setSelectedRecord("");
