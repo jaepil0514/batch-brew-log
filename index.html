@@ -340,6 +340,34 @@
       background: #fff;
     }
 
+    .batch-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: flex-end;
+      padding-top: 4px;
+    }
+
+    .revision-stack {
+      display: grid;
+      gap: 8px;
+    }
+
+    .revision-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .revision-reason {
+      margin-top: 6px;
+      padding: 7px 8px;
+      border-left: 3px solid var(--alert);
+      background: #fff5ef;
+      color: #754326;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
     .hint {
       color: var(--muted);
       font-size: 12px;
@@ -644,6 +672,13 @@
                     <label for="b1GrindAdjust">Coffee Grind Adjustment</label>
                     <input id="b1GrindAdjust" name="b1GrindAdjust" type="text" placeholder="e.g. grind slightly finer">
                   </div>
+                  <div class="field wide">
+                    <label for="b1AdjustmentReason">Reason for Adjustment</label>
+                    <textarea id="b1AdjustmentReason" name="b1AdjustmentReason" placeholder="Why does this recipe need to change?"></textarea>
+                  </div>
+                  <div class="batch-actions">
+                    <button class="btn" type="button" data-save-bean="b1">Save Batch 1 Recipe</button>
+                  </div>
                 </div>
               </section>
 
@@ -689,15 +724,21 @@
                     <label for="b2GrindAdjust">Coffee Grind Adjustment</label>
                     <input id="b2GrindAdjust" name="b2GrindAdjust" type="text" placeholder="e.g. grind slightly coarser next batch">
                   </div>
+                  <div class="field wide">
+                    <label for="b2AdjustmentReason">Reason for Adjustment</label>
+                    <textarea id="b2AdjustmentReason" name="b2AdjustmentReason" placeholder="Why does this recipe need to change?"></textarea>
+                  </div>
+                  <div class="batch-actions">
+                    <button class="btn" type="button" data-save-bean="b2">Save Batch 2 Recipe</button>
+                  </div>
                 </div>
               </section>
             </div>
 
             <div class="form-foot">
-              <p class="hint">Records are saved on the shared server for this domain. Saving the same date again updates that date's record.</p>
+              <p class="hint" id="saveStatus">Save each bean separately. Every save creates a new recipe revision and keeps the previous versions.</p>
               <div class="actions">
                 <button class="btn secondary" id="clearForm" type="button">Clear Form</button>
-                <button class="btn" type="submit">Save Record</button>
               </div>
             </div>
           </form>
@@ -739,9 +780,10 @@
 
     const fields = [
       "date", "brewTime",
-      "b1Barista", "b1Origin", "b1Notes", "b1Ek", "b1Coffee", "b1Taste", "b1EkAdjust", "b1GrindAdjust",
-      "b2Barista", "b2Origin", "b2Notes", "b2Ek", "b2Coffee", "b2Taste", "b2EkAdjust", "b2GrindAdjust"
+      "b1Barista", "b1Origin", "b1Notes", "b1Ek", "b1Coffee", "b1Taste", "b1EkAdjust", "b1GrindAdjust", "b1AdjustmentReason",
+      "b2Barista", "b2Origin", "b2Notes", "b2Ek", "b2Coffee", "b2Taste", "b2EkAdjust", "b2GrindAdjust", "b2AdjustmentReason"
     ];
+    const beanFields = ["Barista", "Origin", "Notes", "Ek", "Coffee", "Taste", "EkAdjust", "GrindAdjust", "AdjustmentReason"];
 
     function todayISO() {
       const now = new Date();
@@ -849,16 +891,6 @@
       b2Ratio.textContent = ratioText(b2Coffee.value);
     }
 
-    function formData() {
-      const data = {};
-      for (const key of fields) {
-        data[key] = form.elements[key].value.trim();
-      }
-      data.waterMl = WATER_ML;
-      data.updatedAt = new Date().toISOString();
-      return data;
-    }
-
     function setForm(record) {
       for (const key of fields) {
         const legacyBarista = record?.barista || "";
@@ -866,7 +898,100 @@
       }
       if (!form.elements.date.value) form.elements.date.value = todayISO();
       if (!form.elements.brewTime.value) form.elements.brewTime.value = "07:30";
+      ["b1", "b2"].forEach((prefix) => {
+        const history = getBeanHistory(record, prefix);
+        if (history.length) setBeanForm(prefix, history[history.length - 1], false);
+      });
       updateRatios();
+    }
+
+    function beanSnapshotFromRecord(record, prefix) {
+      return {
+        barista: record?.[`${prefix}Barista`] || record?.barista || "",
+        origin: record?.[`${prefix}Origin`] || "",
+        notes: record?.[`${prefix}Notes`] || "",
+        ek: record?.[`${prefix}Ek`] || "",
+        coffee: record?.[`${prefix}Coffee`] || "",
+        taste: record?.[`${prefix}Taste`] || "",
+        ekAdjust: record?.[`${prefix}EkAdjust`] || "",
+        grindAdjust: record?.[`${prefix}GrindAdjust`] || "",
+        adjustmentReason: record?.[`${prefix}AdjustmentReason`] || "",
+        savedAt: record?.updatedAt || ""
+      };
+    }
+
+    function beanSnapshotFromForm(prefix) {
+      return {
+        barista: form.elements[`${prefix}Barista`].value.trim(),
+        origin: form.elements[`${prefix}Origin`].value.trim(),
+        notes: form.elements[`${prefix}Notes`].value.trim(),
+        ek: form.elements[`${prefix}Ek`].value.trim(),
+        coffee: form.elements[`${prefix}Coffee`].value.trim(),
+        taste: form.elements[`${prefix}Taste`].value.trim(),
+        ekAdjust: form.elements[`${prefix}EkAdjust`].value.trim(),
+        grindAdjust: form.elements[`${prefix}GrindAdjust`].value.trim(),
+        adjustmentReason: form.elements[`${prefix}AdjustmentReason`].value.trim(),
+        savedAt: new Date().toISOString()
+      };
+    }
+
+    function getBeanHistory(record, prefix) {
+      const stored = record?.[`${prefix}History`];
+      if (Array.isArray(stored) && stored.length) return stored;
+      const legacy = beanSnapshotFromRecord(record, prefix);
+      return legacy.origin || legacy.coffee || legacy.ek ? [legacy] : [];
+    }
+
+    function setBeanForm(prefix, snapshot, updateDate = true, record = null) {
+      const values = {
+        Barista: snapshot?.barista,
+        Origin: snapshot?.origin,
+        Notes: snapshot?.notes,
+        Ek: snapshot?.ek,
+        Coffee: snapshot?.coffee,
+        Taste: snapshot?.taste,
+        EkAdjust: snapshot?.ekAdjust,
+        GrindAdjust: snapshot?.grindAdjust,
+        AdjustmentReason: snapshot?.adjustmentReason
+      };
+      beanFields.forEach((suffix) => form.elements[`${prefix}${suffix}`].value = values[suffix] || "");
+      if (updateDate && record) {
+        form.elements.date.value = record.date || todayISO();
+        form.elements.brewTime.value = record.brewTime || "07:30";
+      }
+      updateRatios();
+    }
+
+    async function saveBean(prefix) {
+      const date = form.elements.date.value;
+      const snapshot = beanSnapshotFromForm(prefix);
+      if (!date || !snapshot.origin) {
+        document.querySelector("#saveStatus").textContent = "Choose a date and enter the coffee origin before saving.";
+        return;
+      }
+      const records = await loadRecords();
+      const existing = records.find((item) => item.date === date) || { date };
+      const historyKey = `${prefix}History`;
+      let history = Array.isArray(existing[historyKey]) ? [...existing[historyKey]] : [];
+      if (!history.length) {
+        const legacy = beanSnapshotFromRecord(existing, prefix);
+        if (legacy.origin || legacy.coffee || legacy.ek) history.push(legacy);
+      }
+      const next = {
+        ...existing,
+        date,
+        brewTime: form.elements.brewTime.value || "07:30",
+        waterMl: WATER_ML,
+        [historyKey]: [...history, snapshot]
+      };
+      beanFields.forEach((suffix) => {
+        const key = suffix.charAt(0).toLowerCase() + suffix.slice(1);
+        next[`${prefix}${suffix}`] = snapshot[key] || "";
+      });
+      const updated = await saveRecord(next);
+      renderHistory(updated);
+      const label = prefix === "b1" ? "Batch 1" : "Batch 2";
+      document.querySelector("#saveStatus").textContent = `${label} saved as revision ${next[historyKey].length}. Previous recipes are still available below.`;
     }
 
     function setSelectedRecord(date) {
@@ -885,16 +1010,19 @@
       coffeeProfiles = new Map();
       [...records].sort((a, b) => a.date.localeCompare(b.date)).forEach((record) => {
         ["b1", "b2"].forEach((prefix) => {
-          const origin = String(record[`${prefix}Origin`] || "").trim();
-          if (!origin) return;
-          coffeeProfiles.set(origin.toLowerCase(), {
-            origin,
-            notes: record[`${prefix}Notes`] || "",
-            ek: record[`${prefix}Ek`] || "",
-            coffee: record[`${prefix}Coffee`] || "",
-            taste: record[`${prefix}Taste`] || "",
-            ekAdjust: record[`${prefix}EkAdjust`] || "",
-            grindAdjust: record[`${prefix}GrindAdjust`] || ""
+          getBeanHistory(record, prefix).forEach((snapshot) => {
+            const origin = String(snapshot.origin || "").trim();
+            if (!origin) return;
+            coffeeProfiles.set(origin.toLowerCase(), {
+              origin,
+              notes: snapshot.notes || "",
+              ek: snapshot.ek || "",
+              coffee: snapshot.coffee || "",
+              taste: snapshot.taste || "",
+              ekAdjust: snapshot.ekAdjust || "",
+              grindAdjust: snapshot.grindAdjust || "",
+              adjustmentReason: snapshot.adjustmentReason || ""
+            });
           });
         });
       });
@@ -915,6 +1043,7 @@
       form.elements[`${prefix}Taste`].value = profile.taste;
       form.elements[`${prefix}EkAdjust`].value = profile.ekAdjust;
       form.elements[`${prefix}GrindAdjust`].value = profile.grindAdjust;
+      form.elements[`${prefix}AdjustmentReason`].value = profile.adjustmentReason;
       updateRatios();
     }
 
@@ -935,8 +1064,10 @@
       records = [...records].sort((a, b) => b.date.localeCompare(a.date));
       refreshCoffeeProfiles(records);
       document.querySelector("#totalRecords").textContent = records.length;
-      document.querySelector("#latestBatchOne").textContent = short(records[0]?.b1Origin);
-      document.querySelector("#latestBatchTwo").textContent = short(records[0]?.b2Origin);
+      const latestB1 = getBeanHistory(records[0], "b1");
+      const latestB2 = getBeanHistory(records[0], "b2");
+      document.querySelector("#latestBatchOne").textContent = short(latestB1[latestB1.length - 1]?.origin);
+      document.querySelector("#latestBatchTwo").textContent = short(latestB2[latestB2.length - 1]?.origin);
 
       if (!records.length) {
         historyEl.innerHTML = "<div class=\"empty\">No records saved yet.<br>Enter today's batch information and save the record.</div>";
@@ -951,8 +1082,8 @@
           </div>
           <div class="record-body">
             <div class="record-batches">
-              ${miniBatch("Batch 1", record.b1Barista || record.barista, record.b1Origin, record.b1Ek, record.b1Coffee, record.b1Taste, record.b1EkAdjust, record.b1GrindAdjust)}
-              ${miniBatch("Batch 2", record.b2Barista || record.barista, record.b2Origin, record.b2Ek, record.b2Coffee, record.b2Taste, record.b2EkAdjust, record.b2GrindAdjust)}
+              ${revisionList("Batch 1", "b1", record, getBeanHistory(record, "b1"))}
+              ${revisionList("Batch 2", "b2", record, getBeanHistory(record, "b2"))}
             </div>
             <button class="btn secondary" type="button" data-load="${record.date}">Select & Load</button>
           </div>
@@ -960,23 +1091,30 @@
       `).join("");
     }
 
-    function miniBatch(name, barista, origin, ek, coffee, taste, ekAdjust, grindAdjust) {
-      return `
-        <div class="mini">
-          <div class="mini-title"><span>${escapeHtml(name)}</span><span>${escapeHtml(ratioText(coffee))}</span></div>
-          <div class="mini-origin">${escapeHtml(short(origin))}</div>
-          <div class="mini-meta">Barista: ${escapeHtml(short(barista))}</div>
-          <div class="mini-meta">EK ${escapeHtml(short(ek))} · ${escapeHtml(short(coffee, "0"))} g / ${WATER_ML} ml</div>
-          <div class="mini-meta">QC: ${escapeHtml(short(taste))}</div>
-          <div class="mini-meta">EK adj: ${escapeHtml(short(ekAdjust))}</div>
-          <div class="mini-meta">Grind adj: ${escapeHtml(short(grindAdjust))}</div>
-        </div>
-      `;
+    function revisionList(name, prefix, record, history) {
+      if (!history.length) return `<div class="mini"><div class="mini-title"><span>${escapeHtml(name)}</span><span>No recipe</span></div></div>`;
+      return `<div class="revision-stack">${[...history].reverse().map((snapshot, reverseIndex) => {
+        const index = history.length - 1 - reverseIndex;
+        return miniBatch(name, prefix, record, snapshot, index, history.length);
+      }).join("")}</div>`;
     }
 
-    async function upsertRecord(record) {
-      const records = await saveRecord(record);
-      return records;
+    function miniBatch(name, prefix, record, snapshot, index, total) {
+      const savedTime = snapshot.savedAt ? new Date(snapshot.savedAt).toLocaleString() : "Legacy recipe";
+      return `
+        <div class="mini">
+          <div class="mini-title"><span>${escapeHtml(name)} · Rev ${index + 1}</span><span>${escapeHtml(ratioText(snapshot.coffee))}</span></div>
+          <div class="revision-label">${escapeHtml(savedTime)}${index === total - 1 ? " · CURRENT" : ""}</div>
+          <div class="mini-origin">${escapeHtml(short(snapshot.origin))}</div>
+          <div class="mini-meta">Barista: ${escapeHtml(short(snapshot.barista))}</div>
+          <div class="mini-meta">EK ${escapeHtml(short(snapshot.ek))} · ${escapeHtml(short(snapshot.coffee, "0"))} g / ${WATER_ML} ml</div>
+          <div class="mini-meta">QC: ${escapeHtml(short(snapshot.taste))}</div>
+          <div class="mini-meta">EK adj: ${escapeHtml(short(snapshot.ekAdjust))}</div>
+          <div class="mini-meta">Grind adj: ${escapeHtml(short(snapshot.grindAdjust))}</div>
+          ${snapshot.adjustmentReason ? `<div class="revision-reason">Reason: ${escapeHtml(snapshot.adjustmentReason)}</div>` : ""}
+          <button class="btn secondary" type="button" data-load-revision="${prefix}" data-revision-index="${index}" data-revision-date="${escapeHtml(record.date)}">Load Revision</button>
+        </div>
+      `;
     }
 
     function csvEscape(value) {
@@ -986,15 +1124,14 @@
     async function exportCsv() {
       const records = (await loadRecords()).sort((a, b) => a.date.localeCompare(b.date));
       const headers = [
-        "Date", "Brew Time",
-        "B1 Barista", "B1 Origin", "B1 Cup Notes", "B1 EK Size", "B1 Coffee g", "B1 Water ml", "B1 Ratio", "B1 Taste QC", "B1 EK Size Adjustment", "B1 Coffee Grind Adjustment",
-        "B2 Barista", "B2 Origin", "B2 Cup Notes", "B2 EK Size", "B2 Coffee g", "B2 Water ml", "B2 Ratio", "B2 Taste QC", "B2 EK Size Adjustment", "B2 Coffee Grind Adjustment"
+        "Date", "Brew Time", "Batch", "Revision", "Saved At", "Barista", "Origin", "Cup Notes", "EK Size", "Coffee g", "Water ml", "Ratio", "Taste QC", "EK Size Adjustment", "Coffee Grind Adjustment", "Adjustment Reason"
       ];
-      const rows = records.map((r) => [
-        r.date, r.brewTime,
-        r.b1Barista || r.barista, r.b1Origin, r.b1Notes, r.b1Ek, r.b1Coffee, WATER_ML, ratioText(r.b1Coffee), r.b1Taste, r.b1EkAdjust, r.b1GrindAdjust,
-        r.b2Barista || r.barista, r.b2Origin, r.b2Notes, r.b2Ek, r.b2Coffee, WATER_ML, ratioText(r.b2Coffee), r.b2Taste, r.b2EkAdjust, r.b2GrindAdjust
-      ]);
+      const rows = records.flatMap((record) => ["b1", "b2"].flatMap((prefix) =>
+        getBeanHistory(record, prefix).map((snapshot, index) => [
+          record.date, record.brewTime, prefix === "b1" ? "Batch 1" : "Batch 2", index + 1, snapshot.savedAt,
+          snapshot.barista, snapshot.origin, snapshot.notes, snapshot.ek, snapshot.coffee, WATER_ML, ratioText(snapshot.coffee), snapshot.taste, snapshot.ekAdjust, snapshot.grindAdjust, snapshot.adjustmentReason
+        ])
+      ));
       const csv = [headers, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
@@ -1005,16 +1142,15 @@
       URL.revokeObjectURL(url);
     }
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const records = await upsertRecord(formData());
-      renderHistory(records);
-    });
+    form.addEventListener("submit", (event) => event.preventDefault());
 
     b1Coffee.addEventListener("input", updateRatios);
     b2Coffee.addEventListener("input", updateRatios);
     form.elements.b1Origin.addEventListener("change", () => applyCoffeeProfile("b1"));
     form.elements.b2Origin.addEventListener("change", () => applyCoffeeProfile("b2"));
+    document.querySelectorAll("[data-save-bean]").forEach((button) => {
+      button.addEventListener("click", () => saveBean(button.dataset.saveBean));
+    });
 
     document.querySelector("#clearForm").addEventListener("click", () => {
       setSelectedRecord("");
@@ -1054,6 +1190,20 @@
       deleteStatus.textContent = `${restored.date} was restored.`;
     });
     historyEl.addEventListener("click", async (event) => {
+      const revisionButton = event.target.closest("[data-load-revision]");
+      if (revisionButton) {
+        const records = await loadRecords();
+        const record = records.find((item) => item.date === revisionButton.dataset.revisionDate);
+        const prefix = revisionButton.dataset.loadRevision;
+        const snapshot = getBeanHistory(record, prefix)[Number(revisionButton.dataset.revisionIndex)];
+        if (record && snapshot) {
+          setBeanForm(prefix, snapshot, true, record);
+          setSelectedRecord(record.date);
+          document.querySelector("#saveStatus").textContent = `${prefix === "b1" ? "Batch 1" : "Batch 2"} revision loaded. Saving now will create a new revision.`;
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+        return;
+      }
       const card = event.target.closest("[data-date]");
       if (!card) return;
       const date = card.dataset.date;
