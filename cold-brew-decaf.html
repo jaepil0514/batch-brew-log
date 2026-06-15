@@ -82,6 +82,11 @@
     .mini-meta { margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
     .empty { padding: 26px 16px; color: var(--muted); text-align: center; line-height: 1.5; }
     .status { min-height: 18px; margin: 0; color: var(--green); font-size: 12px; font-weight: 800; }
+    .recipe-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px 16px; }
+    .recipe-actions .status { flex: 1; }
+    .revision-stack { display: grid; gap: 8px; min-width: 0; }
+    .revision-label { margin-top: 5px; color: var(--green); font-size: 11px; font-weight: 900; }
+    .revision-reason { margin-top: 7px; padding: 7px 8px; border-left: 3px solid var(--alert); background: #fff4ed; color: #71391d; font-size: 12px; line-height: 1.4; }
     .history-actions { display: flex; align-items: center; gap: 8px; }
     .btn:disabled { cursor: not-allowed; opacity: .45; }
     .hidden { display: none; }
@@ -154,7 +159,9 @@
                   <div class="field wide"><label for="coldTaste">Taste / QC</label><textarea id="coldTaste" name="coldTaste" placeholder="e.g. round, sweet, clean finish"></textarea></div>
                   <div class="field"><label for="coldEkAdjust">EK Size Adjustment</label><input id="coldEkAdjust" name="coldEkAdjust" type="text" placeholder="e.g. +0.5 coarser"></div>
                   <div class="field"><label for="coldGrindAdjust">Coffee Grind Adjustment</label><input id="coldGrindAdjust" name="coldGrindAdjust" type="text" placeholder="e.g. grind slightly coarser"></div>
+                  <div class="field wide"><label for="coldAdjustmentReason">Reason for Adjustment</label><textarea id="coldAdjustmentReason" name="coldAdjustmentReason" placeholder="Why does this recipe need to change?"></textarea></div>
                 </div>
+                <div class="recipe-actions"><p class="status" id="coldSaveStatus" role="status"></p><button class="btn" type="button" data-save-section="cold">Save Cold Brew Recipe</button></div>
               </section>
 
               <section class="recipe" aria-labelledby="decafTitle">
@@ -165,13 +172,15 @@
                   <div class="field wide"><label for="decafEk">EK Grind Size</label><input id="decafEk" name="decafEk" type="text" placeholder="e.g. 9.5"></div>
                   <div class="field"><label for="decafDose">Dose (g)</label><input id="decafDose" name="decafDose" type="number" min="0" step="0.1" placeholder="e.g. 20"></div>
                   <div class="field"><label for="decafYield">Yield (g)</label><input id="decafYield" name="decafYield" type="number" min="0" step="0.1" placeholder="e.g. 40"></div>
+                  <div class="field wide"><label for="decafAdjustmentReason">Reason for Adjustment</label><textarea id="decafAdjustmentReason" name="decafAdjustmentReason" placeholder="Why does this recipe need to change?"></textarea></div>
                 </div>
+                <div class="recipe-actions"><p class="status" id="decafSaveStatus" role="status"></p><button class="btn" type="button" data-save-section="decaf">Save Decaf Recipe</button></div>
               </section>
             </div>
 
             <div class="form-foot">
-              <div><p class="hint">Records are shared through the same cloud storage. Saving the same date updates that date only.</p><p class="status" id="status" role="status"></p></div>
-              <div class="actions"><button class="btn secondary" id="clearForm" type="button">Clear Form</button><button class="btn" type="submit">Save Record</button></div>
+              <div><p class="hint">Save each recipe separately. New saves create revisions, so earlier recipes remain available.</p><p class="status" id="status" role="status"></p></div>
+              <div class="actions"><button class="btn secondary" id="clearForm" type="button">Clear Form</button></div>
             </div>
           </form>
           <datalist id="coldCoffeeProfiles"></datalist>
@@ -206,9 +215,13 @@
     let coldCoffeeProfiles = new Map();
     const fields = [
       "date", "prepTime",
-      "coldBarista", "coldOrigin", "coldNotes", "coldEk", "coldCoffee", "coldWater", "coldSteep", "coldStart", "coldFinish", "coldServe", "coldTaste", "coldEkAdjust", "coldGrindAdjust",
-      "decafBarista", "decafRoastDate", "decafEk", "decafDose", "decafYield"
+      "coldBarista", "coldOrigin", "coldNotes", "coldEk", "coldCoffee", "coldWater", "coldSteep", "coldStart", "coldFinish", "coldServe", "coldTaste", "coldEkAdjust", "coldGrindAdjust", "coldAdjustmentReason",
+      "decafBarista", "decafRoastDate", "decafEk", "decafDose", "decafYield", "decafAdjustmentReason"
     ];
+    const sectionFields = {
+      cold: ["Barista", "Origin", "Notes", "Ek", "Coffee", "Water", "Steep", "Start", "Finish", "Serve", "Taste", "EkAdjust", "GrindAdjust", "AdjustmentReason"],
+      decaf: ["Barista", "RoastDate", "Ek", "Dose", "Yield", "AdjustmentReason"]
+    };
 
     function todayISO() {
       const now = new Date();
@@ -251,7 +264,79 @@
       fields.forEach(key => form.elements[key].value = record?.[key] || (key === "coldBarista" || key === "decafBarista" ? legacyBarista : ""));
       if (!form.elements.date.value) form.elements.date.value = todayISO();
       if (!form.elements.prepTime.value) form.elements.prepTime.value = "07:30";
+      ["cold", "decaf"].forEach(prefix => {
+        const history = getSectionHistory(record, prefix);
+        if (history.length) setSectionForm(prefix, history[history.length - 1], false);
+      });
       statusEl.textContent = "";
+    }
+    function sectionSnapshotFromRecord(record, prefix) {
+      const snapshot = { savedAt: record?.updatedAt || "" };
+      sectionFields[prefix].forEach(suffix => {
+        const key = suffix.charAt(0).toLowerCase() + suffix.slice(1);
+        snapshot[key] = record?.[`${prefix}${suffix}`] || (suffix === "Barista" ? record?.barista || "" : "");
+      });
+      return snapshot;
+    }
+    function sectionSnapshotFromForm(prefix) {
+      const snapshot = { savedAt: new Date().toISOString() };
+      sectionFields[prefix].forEach(suffix => {
+        const key = suffix.charAt(0).toLowerCase() + suffix.slice(1);
+        snapshot[key] = form.elements[`${prefix}${suffix}`].value.trim();
+      });
+      return snapshot;
+    }
+    function hasSectionRecipe(snapshot, prefix) {
+      return prefix === "cold"
+        ? Boolean(snapshot.origin || snapshot.coffee || snapshot.ek)
+        : Boolean(snapshot.roastDate || snapshot.dose || snapshot.yield || snapshot.ek);
+    }
+    function getSectionHistory(record, prefix) {
+      const stored = record?.[`${prefix}History`];
+      if (Array.isArray(stored) && stored.length) return stored;
+      const legacy = sectionSnapshotFromRecord(record, prefix);
+      return hasSectionRecipe(legacy, prefix) ? [legacy] : [];
+    }
+    function setSectionForm(prefix, snapshot, updateDate = true, record = null) {
+      sectionFields[prefix].forEach(suffix => {
+        const key = suffix.charAt(0).toLowerCase() + suffix.slice(1);
+        form.elements[`${prefix}${suffix}`].value = snapshot?.[key] || "";
+      });
+      if (updateDate && record) {
+        form.elements.date.value = record.date || todayISO();
+        form.elements.prepTime.value = record.prepTime || "07:30";
+      }
+    }
+    async function saveSection(prefix) {
+      const date = form.elements.date.value;
+      const snapshot = sectionSnapshotFromForm(prefix);
+      const status = document.querySelector(`#${prefix}SaveStatus`);
+      if (!date || !hasSectionRecipe(snapshot, prefix)) {
+        status.textContent = `Choose a date and enter the ${prefix === "cold" ? "Cold Brew" : "Decaf"} recipe before saving.`;
+        return;
+      }
+      status.textContent = "Saving...";
+      try {
+        const records = await loadRecords();
+        const existing = records.find(item => item.date === date) || { date };
+        const historyKey = `${prefix}History`;
+        let history = Array.isArray(existing[historyKey]) ? [...existing[historyKey]] : [];
+        if (!history.length) {
+          const legacy = sectionSnapshotFromRecord(existing, prefix);
+          if (hasSectionRecipe(legacy, prefix)) history.push(legacy);
+        }
+        const next = { ...existing, date, prepTime: form.elements.prepTime.value || "07:30", [historyKey]: [...history, snapshot] };
+        sectionFields[prefix].forEach(suffix => {
+          const key = suffix.charAt(0).toLowerCase() + suffix.slice(1);
+          next[`${prefix}${suffix}`] = snapshot[key] || "";
+        });
+        const updated = await saveRecord(next);
+        renderHistory(updated);
+        const label = prefix === "cold" ? "Cold Brew" : "Decaf";
+        status.textContent = `${label} saved as revision ${next[historyKey].length}. Previous recipes remain available below.`;
+      } catch {
+        status.textContent = "Could not save. Check the internet connection.";
+      }
     }
     function setSelectedDate(date) {
       selectedDate = date || "";
@@ -265,19 +350,22 @@
     function refreshColdCoffeeProfiles(records) {
       coldCoffeeProfiles = new Map();
       [...records].sort((a,b) => a.date.localeCompare(b.date)).forEach(record => {
-        const origin = String(record.coldOrigin || "").trim();
-        if (!origin) return;
-        coldCoffeeProfiles.set(origin.toLowerCase(), {
-          origin,
-          notes: record.coldNotes || "",
-          ek: record.coldEk || "",
-          coffee: record.coldCoffee || "",
-          water: record.coldWater || "",
-          steep: record.coldSteep || "",
-          serve: record.coldServe || "",
-          taste: record.coldTaste || "",
-          ekAdjust: record.coldEkAdjust || "",
-          grindAdjust: record.coldGrindAdjust || ""
+        getSectionHistory(record, "cold").forEach(snapshot => {
+          const origin = String(snapshot.origin || "").trim();
+          if (!origin) return;
+          coldCoffeeProfiles.set(origin.toLowerCase(), {
+            origin,
+            notes: snapshot.notes || "",
+            ek: snapshot.ek || "",
+            coffee: snapshot.coffee || "",
+            water: snapshot.water || "",
+            steep: snapshot.steep || "",
+            serve: snapshot.serve || "",
+            taste: snapshot.taste || "",
+            ekAdjust: snapshot.ekAdjust || "",
+            grindAdjust: snapshot.grindAdjust || "",
+            adjustmentReason: snapshot.adjustmentReason || ""
+          });
         });
       });
       document.querySelector("#coldCoffeeProfiles").innerHTML = [...coldCoffeeProfiles.values()]
@@ -298,6 +386,7 @@
       form.elements.coldTaste.value = profile.taste;
       form.elements.coldEkAdjust.value = profile.ekAdjust;
       form.elements.coldGrindAdjust.value = profile.grindAdjust;
+      form.elements.coldAdjustmentReason.value = profile.adjustmentReason;
     }
     function short(value, fallback = "-") { return value && String(value).trim() ? String(value).trim() : fallback; }
     function escapeHtml(value) {
@@ -311,8 +400,10 @@
       records = [...records].sort((a,b) => b.date.localeCompare(a.date));
       refreshColdCoffeeProfiles(records);
       document.querySelector("#totalRecords").textContent = records.length;
-      document.querySelector("#latestCold").textContent = short(records[0]?.coldOrigin);
-      document.querySelector("#latestDecaf").textContent = short(records[0]?.decafRoastDate);
+      const latestCold = getSectionHistory(records[0], "cold");
+      const latestDecaf = getSectionHistory(records[0], "decaf");
+      document.querySelector("#latestCold").textContent = short(latestCold[latestCold.length - 1]?.origin);
+      document.querySelector("#latestDecaf").textContent = short(latestDecaf[latestDecaf.length - 1]?.roastDate);
       if (!records.length) {
         historyEl.innerHTML = '<div class="empty">No records saved yet.<br>Enter today\'s Cold Brew and Decaf information.</div>';
         return;
@@ -322,27 +413,53 @@
           <div><div class="record-date">${escapeHtml(record.date)}</div><div class="record-time">${escapeHtml(short(record.prepTime))}</div></div>
           <div class="record-body">
             <div class="record-recipes">
-              <div class="mini"><div class="mini-title"><span>Cold Brew</span><span>${escapeHtml(ratio(record.coldCoffee, record.coldWater))}</span></div><div class="mini-origin">${escapeHtml(short(record.coldOrigin))}</div><div class="mini-meta">Barista: ${escapeHtml(short(record.coldBarista || record.barista))}</div><div class="mini-meta">EK ${escapeHtml(short(record.coldEk))} · ${escapeHtml(short(record.coldCoffee,"0"))} g / ${escapeHtml(short(record.coldWater,"0"))} ml</div><div class="mini-meta">Steep: ${escapeHtml(short(record.coldSteep))} hr · QC: ${escapeHtml(short(record.coldTaste))}</div></div>
-              <div class="mini"><div class="mini-title"><span>Decaf</span><span>Roast ${escapeHtml(short(record.decafRoastDate))}</span></div><div class="mini-origin">EK ${escapeHtml(short(record.decafEk))}</div><div class="mini-meta">Barista: ${escapeHtml(short(record.decafBarista || record.barista))}</div><div class="mini-meta">Dose ${escapeHtml(short(record.decafDose,"0"))} g · Yield ${escapeHtml(short(record.decafYield,"0"))} g</div></div>
+              ${revisionList("Cold Brew", "cold", record, getSectionHistory(record, "cold"))}
+              ${revisionList("Decaf", "decaf", record, getSectionHistory(record, "decaf"))}
             </div>
             <button class="btn secondary" type="button" data-load="${escapeHtml(record.date)}">Select & Load</button>
           </div>
         </article>`).join("");
     }
+    function revisionList(name, prefix, record, history) {
+      if (!history.length) return `<div class="mini"><div class="mini-title"><span>${escapeHtml(name)}</span><span>No recipe</span></div></div>`;
+      return `<div class="revision-stack">${[...history].reverse().map((snapshot, reverseIndex) => {
+        const index = history.length - 1 - reverseIndex;
+        return miniRecipe(name, prefix, record, snapshot, index, history.length);
+      }).join("")}</div>`;
+    }
+    function miniRecipe(name, prefix, record, snapshot, index, total) {
+      const savedTime = snapshot.savedAt ? new Date(snapshot.savedAt).toLocaleString() : "Legacy recipe";
+      const recipeMeta = prefix === "cold"
+        ? `<div class="mini-origin">${escapeHtml(short(snapshot.origin))}</div><div class="mini-meta">EK ${escapeHtml(short(snapshot.ek))} · ${escapeHtml(short(snapshot.coffee, "0"))} g / ${escapeHtml(short(snapshot.water, "0"))} ml</div><div class="mini-meta">Steep: ${escapeHtml(short(snapshot.steep))} hr · QC: ${escapeHtml(short(snapshot.taste))}</div><div class="mini-meta">EK adj: ${escapeHtml(short(snapshot.ekAdjust))} · Grind adj: ${escapeHtml(short(snapshot.grindAdjust))}</div>`
+        : `<div class="mini-origin">Roast ${escapeHtml(short(snapshot.roastDate))} · EK ${escapeHtml(short(snapshot.ek))}</div><div class="mini-meta">Dose ${escapeHtml(short(snapshot.dose, "0"))} g · Yield ${escapeHtml(short(snapshot.yield, "0"))} g</div>`;
+      const badge = prefix === "cold" ? ratio(snapshot.coffee, snapshot.water) : `Rev ${index + 1}`;
+      return `<div class="mini">
+        <div class="mini-title"><span>${escapeHtml(name)} · Rev ${index + 1}</span><span>${escapeHtml(badge)}</span></div>
+        <div class="revision-label">${escapeHtml(savedTime)}${index === total - 1 ? " · CURRENT" : ""}</div>
+        ${recipeMeta}
+        <div class="mini-meta">Barista: ${escapeHtml(short(snapshot.barista))}</div>
+        ${snapshot.adjustmentReason ? `<div class="revision-reason">Reason: ${escapeHtml(snapshot.adjustmentReason)}</div>` : ""}
+        <button class="btn secondary" type="button" data-load-revision="${prefix}" data-revision-index="${index}" data-revision-date="${escapeHtml(record.date)}">Load Revision</button>
+      </div>`;
+    }
     function csvEscape(value) { return `"${String(value ?? "").replaceAll('"','""')}"`; }
     async function exportCsv() {
       const records = (await loadRecords()).sort((a,b) => a.date.localeCompare(b.date));
-      const csvFields = fields;
-      const labels = csvFields.map(key => key.replace(/([A-Z])/g," $1").replace(/^./,letter => letter.toUpperCase()));
-      const csv = [labels, ...records.map(record => csvFields.map(key => record[key] || ((key === "coldBarista" || key === "decafBarista") ? record.barista : "")))].map(row => row.map(csvEscape).join(",")).join("\n");
+      const labels = ["Date", "Preparation Time", "Section", "Revision", "Saved At", "Barista", "Origin / Roast Date", "Cup Notes", "EK Size", "Coffee / Dose g", "Water / Yield", "Steep Hours", "Serving Recipe", "Taste / QC", "EK Adjustment", "Grind Adjustment", "Adjustment Reason"];
+      const rows = records.flatMap(record => ["cold", "decaf"].flatMap(prefix =>
+        getSectionHistory(record, prefix).map((snapshot, index) => prefix === "cold"
+          ? [record.date, record.prepTime, "Cold Brew", index + 1, snapshot.savedAt, snapshot.barista, snapshot.origin, snapshot.notes, snapshot.ek, snapshot.coffee, snapshot.water, snapshot.steep, snapshot.serve, snapshot.taste, snapshot.ekAdjust, snapshot.grindAdjust, snapshot.adjustmentReason]
+          : [record.date, record.prepTime, "Decaf", index + 1, snapshot.savedAt, snapshot.barista, snapshot.roastDate, "", snapshot.ek, snapshot.dose, snapshot.yield, "", "", "", "", "", snapshot.adjustmentReason]
+        )
+      ));
+      const csv = [labels, ...rows].map(row => row.map(csvEscape).join(",")).join("\n");
       const url = URL.createObjectURL(new Blob([csv], { type:"text/csv;charset=utf-8" }));
       const link = document.createElement("a"); link.href = url; link.download = `cold-brew-decaf-${todayISO()}.csv`; link.click(); URL.revokeObjectURL(url);
     }
 
-    form.addEventListener("submit", async event => {
-      event.preventDefault(); statusEl.textContent = "Saving...";
-      try { renderHistory(await saveRecord(getFormData())); statusEl.textContent = "Saved to cloud."; }
-      catch { statusEl.textContent = "Could not save. Check the internet connection."; }
+    form.addEventListener("submit", event => event.preventDefault());
+    document.querySelectorAll("[data-save-section]").forEach(button => {
+      button.addEventListener("click", () => saveSection(button.dataset.saveSection));
     });
     document.querySelector("#clearForm").addEventListener("click", () => { setSelectedDate(""); setForm({ date:todayISO(), prepTime:"07:30" }); });
     document.querySelector("#loadToday").addEventListener("click", async () => { const date=todayISO(); const record=(await loadRecords()).find(item => item.date === date); setForm(record || { date, prepTime:"07:30" }); setSelectedDate(record ? date : ""); });
@@ -372,6 +489,21 @@
     document.querySelector("#printPage").addEventListener("click", () => window.print());
     form.elements.coldOrigin.addEventListener("change", applyColdCoffeeProfile);
     historyEl.addEventListener("click", async event => {
+      const revisionButton = event.target.closest("[data-load-revision]");
+      if (revisionButton) {
+        const records = await loadRecords();
+        const record = records.find(item => item.date === revisionButton.dataset.revisionDate);
+        const prefix = revisionButton.dataset.loadRevision;
+        const snapshot = getSectionHistory(record, prefix)[Number(revisionButton.dataset.revisionIndex)];
+        if (record && snapshot) {
+          setSectionForm(prefix, snapshot, true, record);
+          setSelectedDate(record.date);
+          const label = prefix === "cold" ? "Cold Brew" : "Decaf";
+          document.querySelector(`#${prefix}SaveStatus`).textContent = `${label} revision loaded. Saving now will create a new revision.`;
+          window.scrollTo({top:0,behavior:"smooth"});
+        }
+        return;
+      }
       const card = event.target.closest("[data-date]");
       if (!card) return;
       const date = card.dataset.date;
