@@ -1113,8 +1113,42 @@
           <div class="mini-meta">Grind adj: ${escapeHtml(short(snapshot.grindAdjust))}</div>
           ${snapshot.adjustmentReason ? `<div class="revision-reason">Reason: ${escapeHtml(snapshot.adjustmentReason)}</div>` : ""}
           <button class="btn secondary" type="button" data-load-revision="${prefix}" data-revision-index="${index}" data-revision-date="${escapeHtml(record.date)}">Load Revision</button>
+          <button class="btn danger" type="button" data-delete-revision="${prefix}" data-revision-index="${index}" data-revision-date="${escapeHtml(record.date)}">Delete Revision</button>
         </div>
       `;
+    }
+
+    function applyBeanSnapshotToRecord(record, prefix, snapshot) {
+      beanFields.forEach((suffix) => {
+        const key = suffix.charAt(0).toLowerCase() + suffix.slice(1);
+        record[`${prefix}${suffix}`] = snapshot?.[key] || "";
+      });
+    }
+
+    async function deleteRevision(prefix, date, index) {
+      const records = await loadRecords();
+      const record = records.find((item) => item.date === date);
+      if (!record) {
+        deleteStatus.textContent = "The selected revision could not be found.";
+        return;
+      }
+      const historyKey = `${prefix}History`;
+      const history = getBeanHistory(record, prefix);
+      if (!history[index]) {
+        deleteStatus.textContent = "The selected revision could not be found.";
+        return;
+      }
+      lastDeletedRecord = JSON.parse(JSON.stringify(record));
+      const nextHistory = history.filter((_, itemIndex) => itemIndex !== index);
+      const next = { ...record, [historyKey]: nextHistory };
+      applyBeanSnapshotToRecord(next, prefix, nextHistory[nextHistory.length - 1] || null);
+      const updated = await saveRecord(next);
+      renderHistory(updated);
+      setForm(next);
+      setSelectedRecord(date);
+      undoButton.disabled = false;
+      const label = prefix === "b1" ? "Batch 1" : "Batch 2";
+      deleteStatus.textContent = `${label} revision ${index + 1} was deleted. Use Undo Delete to restore it.`;
     }
 
     function csvEscape(value) {
@@ -1190,6 +1224,15 @@
       deleteStatus.textContent = `${restored.date} was restored.`;
     });
     historyEl.addEventListener("click", async (event) => {
+      const deleteRevisionButton = event.target.closest("[data-delete-revision]");
+      if (deleteRevisionButton) {
+        await deleteRevision(
+          deleteRevisionButton.dataset.deleteRevision,
+          deleteRevisionButton.dataset.revisionDate,
+          Number(deleteRevisionButton.dataset.revisionIndex)
+        );
+        return;
+      }
       const revisionButton = event.target.closest("[data-load-revision]");
       if (revisionButton) {
         const records = await loadRecords();
