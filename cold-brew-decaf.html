@@ -440,8 +440,43 @@
         <div class="mini-meta">Barista: ${escapeHtml(short(snapshot.barista))}</div>
         ${snapshot.adjustmentReason ? `<div class="revision-reason">Reason: ${escapeHtml(snapshot.adjustmentReason)}</div>` : ""}
         <button class="btn secondary" type="button" data-load-revision="${prefix}" data-revision-index="${index}" data-revision-date="${escapeHtml(record.date)}">Load Revision</button>
+        <button class="btn danger" type="button" data-delete-revision="${prefix}" data-revision-index="${index}" data-revision-date="${escapeHtml(record.date)}">Delete Revision</button>
       </div>`;
     }
+
+    function applySectionSnapshotToRecord(record, prefix, snapshot) {
+      sectionFields[prefix].forEach(suffix => {
+        const key = suffix.charAt(0).toLowerCase() + suffix.slice(1);
+        record[`${prefix}${suffix}`] = snapshot?.[key] || "";
+      });
+    }
+
+    async function deleteRevision(prefix, date, index) {
+      const records = await loadRecords();
+      const record = records.find(item => item.date === date);
+      if (!record) {
+        statusEl.textContent = "The selected revision could not be found.";
+        return;
+      }
+      const historyKey = `${prefix}History`;
+      const history = getSectionHistory(record, prefix);
+      if (!history[index]) {
+        statusEl.textContent = "The selected revision could not be found.";
+        return;
+      }
+      lastDeletedRecord = JSON.parse(JSON.stringify(record));
+      const nextHistory = history.filter((_, itemIndex) => itemIndex !== index);
+      const next = { ...record, [historyKey]: nextHistory };
+      applySectionSnapshotToRecord(next, prefix, nextHistory[nextHistory.length - 1] || null);
+      const updated = await saveRecord(next);
+      renderHistory(updated);
+      setForm(next);
+      setSelectedDate(date);
+      undoButton.disabled = false;
+      const label = prefix === "cold" ? "Cold Brew" : "Decaf";
+      statusEl.textContent = `${label} revision ${index + 1} was deleted. Use Undo Delete to restore it.`;
+    }
+
     function csvEscape(value) { return `"${String(value ?? "").replaceAll('"','""')}"`; }
     async function exportCsv() {
       const records = (await loadRecords()).sort((a,b) => a.date.localeCompare(b.date));
@@ -489,6 +524,15 @@
     document.querySelector("#printPage").addEventListener("click", () => window.print());
     form.elements.coldOrigin.addEventListener("change", applyColdCoffeeProfile);
     historyEl.addEventListener("click", async event => {
+      const deleteRevisionButton = event.target.closest("[data-delete-revision]");
+      if (deleteRevisionButton) {
+        await deleteRevision(
+          deleteRevisionButton.dataset.deleteRevision,
+          deleteRevisionButton.dataset.revisionDate,
+          Number(deleteRevisionButton.dataset.revisionIndex)
+        );
+        return;
+      }
       const revisionButton = event.target.closest("[data-load-revision]");
       if (revisionButton) {
         const records = await loadRecords();
