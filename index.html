@@ -597,11 +597,11 @@
         <span class="metric-value" id="totalRecords">0</span>
       </div>
       <div class="metric">
-        <span class="metric-label">Latest Batch 1</span>
+        <span class="metric-label">Latest Batch Brew +</span>
         <span class="metric-value" id="latestBatchOne">-</span>
       </div>
       <div class="metric">
-        <span class="metric-label">Latest Batch 2</span>
+        <span class="metric-label">Latest Batch Brew</span>
         <span class="metric-value" id="latestBatchTwo">-</span>
       </div>
       <div class="metric">
@@ -632,12 +632,12 @@
             <div class="batch-grid">
               <section class="batch" aria-labelledby="batchOneTitle">
                 <div class="batch-head">
-                  <h3 class="batch-name" id="batchOneTitle">Batch 1</h3>
+                  <h3 class="batch-name" id="batchOneTitle">Batch Brew +</h3>
                   <span class="fixed-water">Water 1000 ml</span>
                 </div>
                 <div class="fields">
                   <div class="field wide">
-                    <label for="b1Barista">Batch 1 Barista</label>
+                    <label for="b1Barista">Batch Brew + Barista</label>
                     <input id="b1Barista" name="b1Barista" type="text" placeholder="Name">
                   </div>
                   <div class="field wide">
@@ -677,19 +677,19 @@
                     <textarea id="b1AdjustmentReason" name="b1AdjustmentReason" placeholder="Why does this recipe need to change?"></textarea>
                   </div>
                   <div class="batch-actions">
-                    <button class="btn" type="button" data-save-bean="b1">Save Batch 1 Recipe</button>
+                    <button class="btn" type="button" data-save-bean="b1">Save Batch Brew + Recipe</button>
                   </div>
                 </div>
               </section>
 
               <section class="batch" aria-labelledby="batchTwoTitle">
                 <div class="batch-head">
-                  <h3 class="batch-name" id="batchTwoTitle">Batch 2</h3>
+                  <h3 class="batch-name" id="batchTwoTitle">Batch Brew</h3>
                   <span class="fixed-water">Water 1000 ml</span>
                 </div>
                 <div class="fields">
                   <div class="field wide">
-                    <label for="b2Barista">Batch 2 Barista</label>
+                    <label for="b2Barista">Batch Brew Barista</label>
                     <input id="b2Barista" name="b2Barista" type="text" placeholder="Name">
                   </div>
                   <div class="field wide">
@@ -729,7 +729,7 @@
                     <textarea id="b2AdjustmentReason" name="b2AdjustmentReason" placeholder="Why does this recipe need to change?"></textarea>
                   </div>
                   <div class="batch-actions">
-                    <button class="btn" type="button" data-save-bean="b2">Save Batch 2 Recipe</button>
+                    <button class="btn" type="button" data-save-bean="b2">Save Batch Brew Recipe</button>
                   </div>
                 </div>
               </section>
@@ -886,6 +886,10 @@
       return `1:${(WATER_ML / dose).toFixed(1)}`;
     }
 
+    function batchLabel(prefix) {
+      return prefix === "b1" ? "Batch Brew +" : "Batch Brew";
+    }
+
     function updateRatios() {
       b1Ratio.textContent = ratioText(b1Coffee.value);
       b2Ratio.textContent = ratioText(b2Coffee.value);
@@ -990,7 +994,7 @@
       });
       const updated = await saveRecord(next);
       renderHistory(updated);
-      const label = prefix === "b1" ? "Batch 1" : "Batch 2";
+      const label = batchLabel(prefix);
       document.querySelector("#saveStatus").textContent = `${label} saved as revision ${next[historyKey].length}. Previous recipes are still available below.`;
     }
 
@@ -1082,8 +1086,8 @@
           </div>
           <div class="record-body">
             <div class="record-batches">
-              ${revisionList("Batch 1", "b1", record, getBeanHistory(record, "b1"))}
-              ${revisionList("Batch 2", "b2", record, getBeanHistory(record, "b2"))}
+              ${revisionList("Batch Brew +", "b1", record, getBeanHistory(record, "b1"))}
+              ${revisionList("Batch Brew", "b2", record, getBeanHistory(record, "b2"))}
             </div>
             <button class="btn secondary" type="button" data-load="${record.date}">Select & Load</button>
           </div>
@@ -1147,7 +1151,7 @@
       setForm(next);
       setSelectedRecord(date);
       undoButton.disabled = false;
-      const label = prefix === "b1" ? "Batch 1" : "Batch 2";
+      const label = batchLabel(prefix);
       deleteStatus.textContent = `${label} revision ${index + 1} was deleted. Use Undo Delete to restore it.`;
     }
 
@@ -1162,7 +1166,7 @@
       ];
       const rows = records.flatMap((record) => ["b1", "b2"].flatMap((prefix) =>
         getBeanHistory(record, prefix).map((snapshot, index) => [
-          record.date, record.brewTime, prefix === "b1" ? "Batch 1" : "Batch 2", index + 1, snapshot.savedAt,
+          record.date, record.brewTime, batchLabel(prefix), index + 1, snapshot.savedAt,
           snapshot.barista, snapshot.origin, snapshot.notes, snapshot.ek, snapshot.coffee, WATER_ML, ratioText(snapshot.coffee), snapshot.taste, snapshot.ekAdjust, snapshot.grindAdjust, snapshot.adjustmentReason
         ])
       ));
@@ -1242,7 +1246,7 @@
         if (record && snapshot) {
           setBeanForm(prefix, snapshot, true, record);
           setSelectedRecord(record.date);
-          document.querySelector("#saveStatus").textContent = `${prefix === "b1" ? "Batch 1" : "Batch 2"} revision loaded. Saving now will create a new revision.`;
+          document.querySelector("#saveStatus").textContent = `${batchLabel(prefix)} revision loaded. Saving now will create a new revision.`;
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
         return;
