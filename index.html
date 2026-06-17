@@ -467,6 +467,32 @@
       overflow-wrap: anywhere;
     }
 
+    .mini.adjusted-recipe {
+      border-color: var(--alert);
+      border-width: 2px;
+      background: #fff8f2;
+    }
+
+    .mini.adjusted-recipe .mini-title,
+    .mini.adjusted-recipe .mini-origin,
+    .mini.adjusted-recipe .mini-meta {
+      font-weight: 900;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .mini.adjusted-recipe .mini-title {
+      font-size: 13px;
+    }
+
+    .mini.adjusted-recipe .mini-origin {
+      font-size: 15px;
+    }
+
+    .mini.adjusted-recipe .mini-meta {
+      font-size: 13px;
+    }
+
     .empty {
       padding: 26px 16px;
       color: var(--muted);
@@ -1105,8 +1131,9 @@
 
     function miniBatch(name, prefix, record, snapshot, index, total) {
       const savedTime = snapshot.savedAt ? new Date(snapshot.savedAt).toLocaleString() : "Legacy recipe";
+      const adjustedClass = snapshot.adjustmentReason || snapshot.ekAdjust || snapshot.grindAdjust ? " adjusted-recipe" : "";
       return `
-        <div class="mini">
+        <div class="mini${adjustedClass}">
           <div class="mini-title"><span>${escapeHtml(name)} · Rev ${index + 1}</span><span>${escapeHtml(ratioText(snapshot.coffee))}</span></div>
           <div class="revision-label">${escapeHtml(savedTime)}${index === total - 1 ? " · CURRENT" : ""}</div>
           <div class="mini-origin">${escapeHtml(short(snapshot.origin))}</div>
