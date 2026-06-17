@@ -429,14 +429,21 @@
     }
     function revisionList(name, prefix, record, history) {
       if (!history.length) return `<div class="mini"><div class="mini-title"><span>${escapeHtml(name)}</span><span>No recipe</span></div></div>`;
-      return `<div class="revision-stack">${[...history].reverse().map((snapshot, reverseIndex) => {
-        const index = history.length - 1 - reverseIndex;
-        return miniRecipe(name, prefix, record, snapshot, index, history.length);
+      const orderedHistory = history.map((snapshot, index) => ({
+        snapshot,
+        index,
+        adjusted: isAdjustedRevision(snapshot, index)
+      })).sort((a, b) => Number(b.adjusted) - Number(a.adjusted) || b.index - a.index);
+      return `<div class="revision-stack">${orderedHistory.map(item => {
+        return miniRecipe(name, prefix, record, item.snapshot, item.index, history.length, item.adjusted);
       }).join("")}</div>`;
     }
-    function miniRecipe(name, prefix, record, snapshot, index, total) {
+    function isAdjustedRevision(snapshot, index) {
+      return index > 0 && Boolean(snapshot.adjustmentReason || snapshot.ekAdjust || snapshot.grindAdjust);
+    }
+    function miniRecipe(name, prefix, record, snapshot, index, total, isAdjusted) {
       const savedTime = snapshot.savedAt ? new Date(snapshot.savedAt).toLocaleString() : "Legacy recipe";
-      const adjustedClass = snapshot.adjustmentReason || snapshot.ekAdjust || snapshot.grindAdjust ? " adjusted-recipe" : "";
+      const adjustedClass = isAdjusted ? " adjusted-recipe" : "";
       const recipeMeta = prefix === "cold"
         ? `<div class="mini-origin">${escapeHtml(short(snapshot.origin))}</div><div class="mini-meta">EK ${escapeHtml(short(snapshot.ek))} · ${escapeHtml(short(snapshot.coffee, "0"))} g / ${escapeHtml(short(snapshot.water, "0"))} ml</div><div class="mini-meta">Steep: ${escapeHtml(short(snapshot.steep))} hr · QC: ${escapeHtml(short(snapshot.taste))}</div><div class="mini-meta">EK adj: ${escapeHtml(short(snapshot.ekAdjust))} · Grind adj: ${escapeHtml(short(snapshot.grindAdjust))}</div>`
         : `<div class="mini-origin">Roast ${escapeHtml(short(snapshot.roastDate))} · EK ${escapeHtml(short(snapshot.ek))}</div><div class="mini-meta">Dose ${escapeHtml(short(snapshot.dose, "0"))} g · Yield ${escapeHtml(short(snapshot.yield, "0"))} g</div>`;
