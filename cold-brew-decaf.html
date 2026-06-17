@@ -304,10 +304,11 @@
       const legacy = sectionSnapshotFromRecord(record, prefix);
       return hasSectionRecipe(legacy, prefix) ? [legacy] : [];
     }
-    function setSectionForm(prefix, snapshot, updateDate = true, record = null) {
+    function setSectionForm(prefix, snapshot, updateDate = true, record = null, clearAdjustments = false) {
       sectionFields[prefix].forEach(suffix => {
         const key = suffix.charAt(0).toLowerCase() + suffix.slice(1);
-        form.elements[`${prefix}${suffix}`].value = snapshot?.[key] || "";
+        const shouldClear = clearAdjustments && ["EkAdjust", "GrindAdjust", "AdjustmentReason"].includes(suffix);
+        form.elements[`${prefix}${suffix}`].value = shouldClear ? "" : snapshot?.[key] || "";
       });
       if (updateDate && record) {
         form.elements.date.value = record.date || todayISO();
@@ -555,7 +556,7 @@
         const prefix = revisionButton.dataset.loadRevision;
         const snapshot = getSectionHistory(record, prefix)[Number(revisionButton.dataset.revisionIndex)];
         if (record && snapshot) {
-          setSectionForm(prefix, snapshot, true, record);
+          setSectionForm(prefix, snapshot, true, record, true);
           setSelectedDate(record.date);
           const label = prefix === "cold" ? "Cold Brew" : "Decaf";
           document.querySelector(`#${prefix}SaveStatus`).textContent = `${label} revision loaded. Saving now will create a new revision.`;
