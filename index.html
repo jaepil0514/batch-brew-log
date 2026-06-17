@@ -1123,15 +1123,23 @@
 
     function revisionList(name, prefix, record, history) {
       if (!history.length) return `<div class="mini"><div class="mini-title"><span>${escapeHtml(name)}</span><span>No recipe</span></div></div>`;
-      return `<div class="revision-stack">${[...history].reverse().map((snapshot, reverseIndex) => {
-        const index = history.length - 1 - reverseIndex;
-        return miniBatch(name, prefix, record, snapshot, index, history.length);
+      const orderedHistory = history.map((snapshot, index) => ({
+        snapshot,
+        index,
+        adjusted: isAdjustedRevision(snapshot, index)
+      })).sort((a, b) => Number(b.adjusted) - Number(a.adjusted) || b.index - a.index);
+      return `<div class="revision-stack">${orderedHistory.map((item) => {
+        return miniBatch(name, prefix, record, item.snapshot, item.index, history.length, item.adjusted);
       }).join("")}</div>`;
     }
 
-    function miniBatch(name, prefix, record, snapshot, index, total) {
+    function isAdjustedRevision(snapshot, index) {
+      return index > 0 && Boolean(snapshot.adjustmentReason || snapshot.ekAdjust || snapshot.grindAdjust);
+    }
+
+    function miniBatch(name, prefix, record, snapshot, index, total, isAdjusted) {
       const savedTime = snapshot.savedAt ? new Date(snapshot.savedAt).toLocaleString() : "Legacy recipe";
-      const adjustedClass = snapshot.adjustmentReason || snapshot.ekAdjust || snapshot.grindAdjust ? " adjusted-recipe" : "";
+      const adjustedClass = isAdjusted ? " adjusted-recipe" : "";
       return `
         <div class="mini${adjustedClass}">
           <div class="mini-title"><span>${escapeHtml(name)} · Rev ${index + 1}</span><span>${escapeHtml(ratioText(snapshot.coffee))}</span></div>
