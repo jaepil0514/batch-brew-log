@@ -80,6 +80,13 @@
     .mini-title { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 900; }
     .mini-origin { margin-top: 8px; font-size: 14px; font-weight: 800; overflow-wrap: anywhere; }
     .mini-meta { margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+    .mini.adjusted-recipe { border-color: var(--alert); border-width: 2px; background: #fff8f2; }
+    .mini.adjusted-recipe .mini-title,
+    .mini.adjusted-recipe .mini-origin,
+    .mini.adjusted-recipe .mini-meta { font-weight: 900; text-decoration: underline; text-underline-offset: 3px; }
+    .mini.adjusted-recipe .mini-title { font-size: 13px; }
+    .mini.adjusted-recipe .mini-origin { font-size: 15px; }
+    .mini.adjusted-recipe .mini-meta { font-size: 13px; }
     .empty { padding: 26px 16px; color: var(--muted); text-align: center; line-height: 1.5; }
     .status { min-height: 18px; margin: 0; color: var(--green); font-size: 12px; font-weight: 800; }
     .recipe-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px 16px; }
@@ -429,11 +436,12 @@
     }
     function miniRecipe(name, prefix, record, snapshot, index, total) {
       const savedTime = snapshot.savedAt ? new Date(snapshot.savedAt).toLocaleString() : "Legacy recipe";
+      const adjustedClass = snapshot.adjustmentReason || snapshot.ekAdjust || snapshot.grindAdjust ? " adjusted-recipe" : "";
       const recipeMeta = prefix === "cold"
         ? `<div class="mini-origin">${escapeHtml(short(snapshot.origin))}</div><div class="mini-meta">EK ${escapeHtml(short(snapshot.ek))} · ${escapeHtml(short(snapshot.coffee, "0"))} g / ${escapeHtml(short(snapshot.water, "0"))} ml</div><div class="mini-meta">Steep: ${escapeHtml(short(snapshot.steep))} hr · QC: ${escapeHtml(short(snapshot.taste))}</div><div class="mini-meta">EK adj: ${escapeHtml(short(snapshot.ekAdjust))} · Grind adj: ${escapeHtml(short(snapshot.grindAdjust))}</div>`
         : `<div class="mini-origin">Roast ${escapeHtml(short(snapshot.roastDate))} · EK ${escapeHtml(short(snapshot.ek))}</div><div class="mini-meta">Dose ${escapeHtml(short(snapshot.dose, "0"))} g · Yield ${escapeHtml(short(snapshot.yield, "0"))} g</div>`;
       const badge = prefix === "cold" ? ratio(snapshot.coffee, snapshot.water) : `Rev ${index + 1}`;
-      return `<div class="mini">
+      return `<div class="mini${adjustedClass}">
         <div class="mini-title"><span>${escapeHtml(name)} · Rev ${index + 1}</span><span>${escapeHtml(badge)}</span></div>
         <div class="revision-label">${escapeHtml(savedTime)}${index === total - 1 ? " · CURRENT" : ""}</div>
         ${recipeMeta}
