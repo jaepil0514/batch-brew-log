@@ -972,7 +972,7 @@
       return legacy.origin || legacy.coffee || legacy.ek ? [legacy] : [];
     }
 
-    function setBeanForm(prefix, snapshot, updateDate = true, record = null) {
+    function setBeanForm(prefix, snapshot, updateDate = true, record = null, clearAdjustments = false) {
       const values = {
         Barista: snapshot?.barista,
         Origin: snapshot?.origin,
@@ -980,9 +980,9 @@
         Ek: snapshot?.ek,
         Coffee: snapshot?.coffee,
         Taste: snapshot?.taste,
-        EkAdjust: snapshot?.ekAdjust,
-        GrindAdjust: snapshot?.grindAdjust,
-        AdjustmentReason: snapshot?.adjustmentReason
+        EkAdjust: clearAdjustments ? "" : snapshot?.ekAdjust,
+        GrindAdjust: clearAdjustments ? "" : snapshot?.grindAdjust,
+        AdjustmentReason: clearAdjustments ? "" : snapshot?.adjustmentReason
       };
       beanFields.forEach((suffix) => form.elements[`${prefix}${suffix}`].value = values[suffix] || "");
       if (updateDate && record) {
@@ -1279,7 +1279,7 @@
         const prefix = revisionButton.dataset.loadRevision;
         const snapshot = getBeanHistory(record, prefix)[Number(revisionButton.dataset.revisionIndex)];
         if (record && snapshot) {
-          setBeanForm(prefix, snapshot, true, record);
+          setBeanForm(prefix, snapshot, true, record, true);
           setSelectedRecord(record.date);
           document.querySelector("#saveStatus").textContent = `${batchLabel(prefix)} revision loaded. Saving now will create a new revision.`;
           window.scrollTo({ top: 0, behavior: "smooth" });
