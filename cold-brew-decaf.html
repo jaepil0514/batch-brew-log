@@ -88,6 +88,8 @@
     .mini.adjusted-recipe .mini-origin { font-size: 15px; }
     .mini.adjusted-recipe .mini-meta { font-size: 13px; }
     .mini.loaded-revision { outline: 3px solid var(--green); outline-offset: 2px; }
+    .mini[data-revision-card] { cursor: pointer; }
+    .mini[data-revision-card]:hover { outline: 3px solid var(--green); outline-offset: 2px; }
     .empty { padding: 26px 16px; color: var(--muted); text-align: center; line-height: 1.5; }
     .status { min-height: 18px; margin: 0; color: var(--green); font-size: 12px; font-weight: 800; }
     .recipe-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px 16px; }
@@ -469,7 +471,7 @@
         ? `<div class="mini-origin">${escapeHtml(short(snapshot.origin))}</div><div class="mini-meta">EK ${escapeHtml(short(snapshot.ek))} · ${escapeHtml(short(snapshot.coffee, "0"))} g / ${escapeHtml(short(snapshot.water, "0"))} ml</div><div class="mini-meta">Steep: ${escapeHtml(short(snapshot.steep))} hr · QC: ${escapeHtml(short(snapshot.taste))}</div><div class="mini-meta">EK adj: ${escapeHtml(short(snapshot.ekAdjust))} · Grind adj: ${escapeHtml(short(snapshot.grindAdjust))}</div>`
         : `<div class="mini-origin">Roast ${escapeHtml(short(snapshot.roastDate))} · EK ${escapeHtml(short(snapshot.ek))}</div><div class="mini-meta">Dose ${escapeHtml(short(snapshot.dose, "0"))} g · Yield ${escapeHtml(short(snapshot.yield, "0"))} g</div>`;
       const badge = prefix === "cold" ? ratio(snapshot.coffee, snapshot.water) : `Rev ${index + 1}`;
-      return `<div class="mini${adjustedClass}${loadedClass}" data-revision-key="${escapeHtml(revisionKey(record.date, prefix, index))}">
+      return `<div class="mini${adjustedClass}${loadedClass}" data-revision-card data-revision-key="${escapeHtml(revisionKey(record.date, prefix, index))}" data-load-revision="${prefix}" data-revision-index="${index}" data-revision-date="${escapeHtml(record.date)}">
         <div class="mini-title"><span>${escapeHtml(name)} · Rev ${index + 1}</span><span>${escapeHtml(badge)}</span></div>
         <div class="revision-label">${escapeHtml(savedTime)}${index === total - 1 ? " · CURRENT" : ""}</div>
         ${recipeMeta}
@@ -560,6 +562,31 @@
     document.querySelector("#exportCsv").addEventListener("click", exportCsv);
     document.querySelector("#printPage").addEventListener("click", () => window.print());
     form.elements.coldOrigin.addEventListener("change", applyColdCoffeeProfile);
+
+    async function loadRevisionFromElement(element) {
+      const records = await loadRecords();
+      const record = records.find(item => item.date === element.dataset.revisionDate);
+      const prefix = element.dataset.loadRevision;
+      const revisionIndex = Number(element.dataset.revisionIndex);
+      const snapshot = getSectionHistory(record, prefix)[revisionIndex];
+      if (record && snapshot) {
+        setSectionForm(prefix, snapshot, true, record, true);
+        setSelectedRevision(record.date, prefix, revisionIndex);
+        const label = prefix === "cold" ? "Cold Brew" : "Decaf";
+        document.querySelector(`#${prefix}SaveStatus`).textContent = `${label} revision ${revisionIndex + 1} loaded. Adjustment fields were cleared for the next change.`;
+        window.scrollTo({top:0,behavior:"smooth"});
+      }
+    }
+
+    historyEl.addEventListener("dblclick", async event => {
+      if (event.target.closest("button")) return;
+      const revisionCard = event.target.closest("[data-revision-card]");
+      if (!revisionCard) return;
+      event.preventDefault();
+      event.stopPropagation();
+      await loadRevisionFromElement(revisionCard);
+    });
+
     historyEl.addEventListener("click", async event => {
       const deleteRevisionButton = event.target.closest("[data-delete-revision]");
       if (deleteRevisionButton) {
@@ -576,17 +603,7 @@
       if (revisionButton) {
         event.preventDefault();
         event.stopPropagation();
-        const records = await loadRecords();
-        const record = records.find(item => item.date === revisionButton.dataset.revisionDate);
-        const prefix = revisionButton.dataset.loadRevision;
-        const snapshot = getSectionHistory(record, prefix)[Number(revisionButton.dataset.revisionIndex)];
-        if (record && snapshot) {
-          setSectionForm(prefix, snapshot, true, record, true);
-          setSelectedRevision(record.date, prefix, Number(revisionButton.dataset.revisionIndex));
-          const label = prefix === "cold" ? "Cold Brew" : "Decaf";
-          document.querySelector(`#${prefix}SaveStatus`).textContent = `${label} revision ${Number(revisionButton.dataset.revisionIndex) + 1} loaded. Adjustment fields were cleared for the next change.`;
-          window.scrollTo({top:0,behavior:"smooth"});
-        }
+        await loadRevisionFromElement(revisionButton);
         return;
       }
       const card = event.target.closest("[data-date]");
