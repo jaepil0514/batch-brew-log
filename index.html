@@ -1048,17 +1048,17 @@
     }
 
     function setSelectedRevision(date, prefix, index) {
-      selectedRecordDate = date || "";
+      selectedRecordDate = "";
       selectedRevisionKey = date ? revisionKey(date, prefix, index) : "";
-      deleteButton.disabled = !selectedRecordDate;
+      deleteButton.disabled = true;
       historyEl.querySelectorAll(".record").forEach((card) => {
-        const isSelected = card.dataset.date === selectedRecordDate;
-        card.classList.toggle("selected", isSelected);
-        card.setAttribute("aria-selected", String(isSelected));
+        card.classList.remove("selected");
+        card.setAttribute("aria-selected", "false");
       });
       historyEl.querySelectorAll("[data-revision-key]").forEach((card) => {
         card.classList.toggle("loaded-revision", card.dataset.revisionKey === selectedRevisionKey);
       });
+      deleteStatus.textContent = "A single revision is loaded. Select a date card only when you want to delete the whole date.";
     }
 
     function refreshCoffeeProfiles(records) {
@@ -1292,6 +1292,8 @@
     historyEl.addEventListener("click", async (event) => {
       const deleteRevisionButton = event.target.closest("[data-delete-revision]");
       if (deleteRevisionButton) {
+        event.preventDefault();
+        event.stopPropagation();
         await deleteRevision(
           deleteRevisionButton.dataset.deleteRevision,
           deleteRevisionButton.dataset.revisionDate,
@@ -1301,6 +1303,8 @@
       }
       const revisionButton = event.target.closest("[data-load-revision]");
       if (revisionButton) {
+        event.preventDefault();
+        event.stopPropagation();
         const records = await loadRecords();
         const record = records.find((item) => item.date === revisionButton.dataset.revisionDate);
         const prefix = revisionButton.dataset.loadRevision;
