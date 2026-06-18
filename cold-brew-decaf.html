@@ -574,7 +574,6 @@
         setSelectedRevision(record.date, prefix, revisionIndex);
         const label = prefix === "cold" ? "Cold Brew" : "Decaf";
         document.querySelector(`#${prefix}SaveStatus`).textContent = `${label} revision ${revisionIndex + 1} loaded. Adjustment fields were cleared for the next change.`;
-        window.scrollTo({top:0,behavior:"smooth"});
       }
     }
 
@@ -612,7 +611,6 @@
       setSelectedDate(date);
       setForm((await loadRecords()).find(item => item.date === date));
       statusEl.textContent = `${date} selected.`;
-      if (event.target.closest("[data-load]")) window.scrollTo({top:0,behavior:"smooth"});
     });
     form.elements.date.addEventListener("change", async () => {
       const date = form.elements.date.value;
