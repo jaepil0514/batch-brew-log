@@ -498,6 +498,15 @@
       outline-offset: 2px;
     }
 
+    .mini[data-revision-card] {
+      cursor: pointer;
+    }
+
+    .mini[data-revision-card]:hover {
+      outline: 3px solid var(--green);
+      outline-offset: 2px;
+    }
+
     .empty {
       padding: 26px 16px;
       color: var(--muted);
@@ -1167,7 +1176,7 @@
       const adjustedClass = isAdjusted ? " adjusted-recipe" : "";
       const loadedClass = selectedRevisionKey === revisionKey(record.date, prefix, index) ? " loaded-revision" : "";
       return `
-        <div class="mini${adjustedClass}${loadedClass}" data-revision-key="${escapeHtml(revisionKey(record.date, prefix, index))}">
+        <div class="mini${adjustedClass}${loadedClass}" data-revision-card data-revision-key="${escapeHtml(revisionKey(record.date, prefix, index))}" data-load-revision="${prefix}" data-revision-index="${index}" data-revision-date="${escapeHtml(record.date)}">
           <div class="mini-title"><span>${escapeHtml(name)} · Rev ${index + 1}</span><span>${escapeHtml(ratioText(snapshot.coffee))}</span></div>
           <div class="revision-label">${escapeHtml(savedTime)}${index === total - 1 ? " · CURRENT" : ""}</div>
           <div class="mini-origin">${escapeHtml(short(snapshot.origin))}</div>
@@ -1289,6 +1298,30 @@
       undoButton.disabled = true;
       deleteStatus.textContent = `${restored.date} was restored.`;
     });
+
+    async function loadRevisionFromElement(element) {
+      const records = await loadRecords();
+      const record = records.find((item) => item.date === element.dataset.revisionDate);
+      const prefix = element.dataset.loadRevision;
+      const revisionIndex = Number(element.dataset.revisionIndex);
+      const snapshot = getBeanHistory(record, prefix)[revisionIndex];
+      if (record && snapshot) {
+        setBeanForm(prefix, snapshot, true, record, true);
+        setSelectedRevision(record.date, prefix, revisionIndex);
+        document.querySelector("#saveStatus").textContent = `${batchLabel(prefix)} revision ${revisionIndex + 1} loaded. Adjustment fields were cleared for the next change.`;
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }
+
+    historyEl.addEventListener("dblclick", async (event) => {
+      if (event.target.closest("button")) return;
+      const revisionCard = event.target.closest("[data-revision-card]");
+      if (!revisionCard) return;
+      event.preventDefault();
+      event.stopPropagation();
+      await loadRevisionFromElement(revisionCard);
+    });
+
     historyEl.addEventListener("click", async (event) => {
       const deleteRevisionButton = event.target.closest("[data-delete-revision]");
       if (deleteRevisionButton) {
@@ -1305,16 +1338,7 @@
       if (revisionButton) {
         event.preventDefault();
         event.stopPropagation();
-        const records = await loadRecords();
-        const record = records.find((item) => item.date === revisionButton.dataset.revisionDate);
-        const prefix = revisionButton.dataset.loadRevision;
-        const snapshot = getBeanHistory(record, prefix)[Number(revisionButton.dataset.revisionIndex)];
-        if (record && snapshot) {
-          setBeanForm(prefix, snapshot, true, record, true);
-          setSelectedRevision(record.date, prefix, Number(revisionButton.dataset.revisionIndex));
-          document.querySelector("#saveStatus").textContent = `${batchLabel(prefix)} revision ${Number(revisionButton.dataset.revisionIndex) + 1} loaded. Adjustment fields were cleared for the next change.`;
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }
+        await loadRevisionFromElement(revisionButton);
         return;
       }
       const card = event.target.closest("[data-date]");
