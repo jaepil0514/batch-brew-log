@@ -87,6 +87,7 @@
     .mini.adjusted-recipe .mini-title { font-size: 13px; }
     .mini.adjusted-recipe .mini-origin { font-size: 15px; }
     .mini.adjusted-recipe .mini-meta { font-size: 13px; }
+    .mini.loaded-revision { outline: 3px solid var(--green); outline-offset: 2px; }
     .empty { padding: 26px 16px; color: var(--muted); text-align: center; line-height: 1.5; }
     .status { min-height: 18px; margin: 0; color: var(--green); font-size: 12px; font-weight: 800; }
     .recipe-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px 16px; }
@@ -218,6 +219,7 @@
     const deleteButton = document.querySelector("#deleteSelected");
     const undoButton = document.querySelector("#undoDelete");
     let selectedDate = "";
+    let selectedRevisionKey = "";
     let lastDeletedRecord = null;
     let coldCoffeeProfiles = new Map();
     const fields = [
@@ -348,11 +350,28 @@
     }
     function setSelectedDate(date) {
       selectedDate = date || "";
+      selectedRevisionKey = "";
       deleteButton.disabled = !selectedDate;
       historyEl.querySelectorAll(".record").forEach(card => {
         const isSelected = card.dataset.date === selectedDate;
         card.classList.toggle("selected", isSelected);
         card.setAttribute("aria-selected", String(isSelected));
+      });
+    }
+    function revisionKey(date, prefix, index) {
+      return `${date}:${prefix}:${index}`;
+    }
+    function setSelectedRevision(date, prefix, index) {
+      selectedDate = date || "";
+      selectedRevisionKey = date ? revisionKey(date, prefix, index) : "";
+      deleteButton.disabled = !selectedDate;
+      historyEl.querySelectorAll(".record").forEach(card => {
+        const isSelected = card.dataset.date === selectedDate;
+        card.classList.toggle("selected", isSelected);
+        card.setAttribute("aria-selected", String(isSelected));
+      });
+      historyEl.querySelectorAll("[data-revision-key]").forEach(card => {
+        card.classList.toggle("loaded-revision", card.dataset.revisionKey === selectedRevisionKey);
       });
     }
     function refreshColdCoffeeProfiles(records) {
@@ -445,17 +464,18 @@
     function miniRecipe(name, prefix, record, snapshot, index, total, isAdjusted) {
       const savedTime = snapshot.savedAt ? new Date(snapshot.savedAt).toLocaleString() : "Legacy recipe";
       const adjustedClass = isAdjusted ? " adjusted-recipe" : "";
+      const loadedClass = selectedRevisionKey === revisionKey(record.date, prefix, index) ? " loaded-revision" : "";
       const recipeMeta = prefix === "cold"
         ? `<div class="mini-origin">${escapeHtml(short(snapshot.origin))}</div><div class="mini-meta">EK ${escapeHtml(short(snapshot.ek))} · ${escapeHtml(short(snapshot.coffee, "0"))} g / ${escapeHtml(short(snapshot.water, "0"))} ml</div><div class="mini-meta">Steep: ${escapeHtml(short(snapshot.steep))} hr · QC: ${escapeHtml(short(snapshot.taste))}</div><div class="mini-meta">EK adj: ${escapeHtml(short(snapshot.ekAdjust))} · Grind adj: ${escapeHtml(short(snapshot.grindAdjust))}</div>`
         : `<div class="mini-origin">Roast ${escapeHtml(short(snapshot.roastDate))} · EK ${escapeHtml(short(snapshot.ek))}</div><div class="mini-meta">Dose ${escapeHtml(short(snapshot.dose, "0"))} g · Yield ${escapeHtml(short(snapshot.yield, "0"))} g</div>`;
       const badge = prefix === "cold" ? ratio(snapshot.coffee, snapshot.water) : `Rev ${index + 1}`;
-      return `<div class="mini${adjustedClass}">
+      return `<div class="mini${adjustedClass}${loadedClass}" data-revision-key="${escapeHtml(revisionKey(record.date, prefix, index))}">
         <div class="mini-title"><span>${escapeHtml(name)} · Rev ${index + 1}</span><span>${escapeHtml(badge)}</span></div>
         <div class="revision-label">${escapeHtml(savedTime)}${index === total - 1 ? " · CURRENT" : ""}</div>
         ${recipeMeta}
         <div class="mini-meta">Barista: ${escapeHtml(short(snapshot.barista))}</div>
         ${snapshot.adjustmentReason ? `<div class="revision-reason">Reason: ${escapeHtml(snapshot.adjustmentReason)}</div>` : ""}
-        <button class="btn secondary" type="button" data-load-revision="${prefix}" data-revision-index="${index}" data-revision-date="${escapeHtml(record.date)}">Load Revision</button>
+        <button class="btn secondary" type="button" data-load-revision="${prefix}" data-revision-index="${index}" data-revision-date="${escapeHtml(record.date)}">Load Rev ${index + 1}</button>
         <button class="btn danger" type="button" data-delete-revision="${prefix}" data-revision-index="${index}" data-revision-date="${escapeHtml(record.date)}">Delete Revision</button>
       </div>`;
     }
@@ -483,6 +503,7 @@
       lastDeletedRecord = JSON.parse(JSON.stringify(record));
       const nextHistory = history.filter((_, itemIndex) => itemIndex !== index);
       const next = { ...record, [historyKey]: nextHistory };
+      if (selectedRevisionKey === revisionKey(date, prefix, index)) selectedRevisionKey = "";
       applySectionSnapshotToRecord(next, prefix, nextHistory[nextHistory.length - 1] || null);
       const updated = await saveRecord(next);
       renderHistory(updated);
@@ -557,9 +578,9 @@
         const snapshot = getSectionHistory(record, prefix)[Number(revisionButton.dataset.revisionIndex)];
         if (record && snapshot) {
           setSectionForm(prefix, snapshot, true, record, true);
-          setSelectedDate(record.date);
+          setSelectedRevision(record.date, prefix, Number(revisionButton.dataset.revisionIndex));
           const label = prefix === "cold" ? "Cold Brew" : "Decaf";
-          document.querySelector(`#${prefix}SaveStatus`).textContent = `${label} revision loaded. Saving now will create a new revision.`;
+          document.querySelector(`#${prefix}SaveStatus`).textContent = `${label} revision ${Number(revisionButton.dataset.revisionIndex) + 1} loaded. Adjustment fields were cleared for the next change.`;
           window.scrollTo({top:0,behavior:"smooth"});
         }
         return;
