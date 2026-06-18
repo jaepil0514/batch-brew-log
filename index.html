@@ -1309,7 +1309,6 @@
         setBeanForm(prefix, snapshot, true, record, true);
         setSelectedRevision(record.date, prefix, revisionIndex);
         document.querySelector("#saveStatus").textContent = `${batchLabel(prefix)} revision ${revisionIndex + 1} loaded. Adjustment fields were cleared for the next change.`;
-        window.scrollTo({ top: 0, behavior: "smooth" });
       }
     }
 
@@ -1348,7 +1347,6 @@
       const record = (await loadRecords()).find((item) => item.date === date);
       setForm(record);
       deleteStatus.textContent = `${date} selected.`;
-      if (event.target.closest("[data-load]")) window.scrollTo({ top: 0, behavior: "smooth" });
     });
     form.elements.date.addEventListener("change", async () => {
       const date = form.elements.date.value;
