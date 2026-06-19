@@ -158,6 +158,7 @@
                 <div class="fields">
                   <div class="field wide"><label for="coldBarista">Cold Brew Barista</label><input id="coldBarista" name="coldBarista" type="text" placeholder="Name"></div>
                   <div class="field wide"><label for="coldOrigin">Origin / Lot</label><input id="coldOrigin" name="coldOrigin" type="text" list="coldCoffeeProfiles" autocomplete="off" placeholder="Type or choose a saved coffee"></div>
+                  <div class="field"><label for="coldRoastDate">Roast Date</label><input id="coldRoastDate" name="coldRoastDate" type="date" autocomplete="off"></div>
                   <div class="field wide"><label for="coldNotes">Original Bean Cup Notes</label><textarea id="coldNotes" name="coldNotes" placeholder="e.g. chocolate, hazelnut, dried fruit"></textarea></div>
                   <div class="field"><label for="coldEk">EK Size</label><input id="coldEk" name="coldEk" type="text" placeholder="e.g. 12.0"></div>
                   <div class="field"><label for="coldCoffee">Coffee (g)</label><input id="coldCoffee" name="coldCoffee" type="number" min="0" step="0.1" placeholder="e.g. 250"></div>
@@ -178,7 +179,7 @@
                 <div class="recipe-head"><h3 class="recipe-name" id="decafTitle">Decaf</h3><span class="tag">Daily Service Recipe</span></div>
                 <div class="fields">
                   <div class="field wide"><label for="decafBarista">Decaf Barista</label><input id="decafBarista" name="decafBarista" type="text" placeholder="Name"></div>
-                  <div class="field wide"><label for="decafRoastDate">Roast Date</label><input id="decafRoastDate" name="decafRoastDate" type="date"></div>
+                  <div class="field wide"><label for="decafRoastDate">Roast Date</label><input id="decafRoastDate" name="decafRoastDate" type="date" autocomplete="off"></div>
                   <div class="field wide"><label for="decafEk">EK Grind Size</label><input id="decafEk" name="decafEk" type="text" placeholder="e.g. 9.5"></div>
                   <div class="field"><label for="decafDose">Dose (g)</label><input id="decafDose" name="decafDose" type="number" min="0" step="0.1" placeholder="e.g. 20"></div>
                   <div class="field"><label for="decafYield">Yield (g)</label><input id="decafYield" name="decafYield" type="number" min="0" step="0.1" placeholder="e.g. 40"></div>
@@ -226,11 +227,11 @@
     let coldCoffeeProfiles = new Map();
     const fields = [
       "date", "prepTime",
-      "coldBarista", "coldOrigin", "coldNotes", "coldEk", "coldCoffee", "coldWater", "coldSteep", "coldStart", "coldFinish", "coldServe", "coldTaste", "coldEkAdjust", "coldGrindAdjust", "coldAdjustmentReason",
+      "coldBarista", "coldOrigin", "coldRoastDate", "coldNotes", "coldEk", "coldCoffee", "coldWater", "coldSteep", "coldStart", "coldFinish", "coldServe", "coldTaste", "coldEkAdjust", "coldGrindAdjust", "coldAdjustmentReason",
       "decafBarista", "decafRoastDate", "decafEk", "decafDose", "decafYield", "decafAdjustmentReason"
     ];
     const sectionFields = {
-      cold: ["Barista", "Origin", "Notes", "Ek", "Coffee", "Water", "Steep", "Start", "Finish", "Serve", "Taste", "EkAdjust", "GrindAdjust", "AdjustmentReason"],
+      cold: ["Barista", "Origin", "RoastDate", "Notes", "Ek", "Coffee", "Water", "Steep", "Start", "Finish", "Serve", "Taste", "EkAdjust", "GrindAdjust", "AdjustmentReason"],
       decaf: ["Barista", "RoastDate", "Ek", "Dose", "Yield", "AdjustmentReason"]
     };
 
@@ -277,7 +278,7 @@
       if (!form.elements.prepTime.value) form.elements.prepTime.value = "07:30";
       ["cold", "decaf"].forEach(prefix => {
         const history = getSectionHistory(record, prefix);
-        if (history.length) setSectionForm(prefix, history[history.length - 1], false);
+        if (history.length) setSectionForm(prefix, primarySectionSnapshot(history), false);
       });
       statusEl.textContent = "";
     }
@@ -307,6 +308,13 @@
       if (Array.isArray(stored) && stored.length) return stored;
       const legacy = sectionSnapshotFromRecord(record, prefix);
       return hasSectionRecipe(legacy, prefix) ? [legacy] : [];
+    }
+    function primarySectionSnapshot(history) {
+      return [...history].map((snapshot, index) => ({
+        snapshot,
+        index,
+        adjusted: isAdjustedRevision(snapshot, index)
+      })).sort((a, b) => Number(b.adjusted) - Number(a.adjusted) || b.index - a.index)[0]?.snapshot || null;
     }
     function setSectionForm(prefix, snapshot, updateDate = true, record = null, clearAdjustments = false) {
       sectionFields[prefix].forEach(suffix => {
@@ -385,6 +393,7 @@
           coldCoffeeProfiles.set(origin.toLowerCase(), {
             origin,
             notes: snapshot.notes || "",
+            roastDate: snapshot.roastDate || "",
             ek: snapshot.ek || "",
             coffee: snapshot.coffee || "",
             water: snapshot.water || "",
@@ -407,6 +416,7 @@
       if (!profile) return;
       form.elements.coldOrigin.value = profile.origin;
       form.elements.coldNotes.value = profile.notes;
+      form.elements.coldRoastDate.value = profile.roastDate;
       form.elements.coldEk.value = profile.ek;
       form.elements.coldCoffee.value = profile.coffee;
       form.elements.coldWater.value = profile.water;
@@ -431,8 +441,8 @@
       document.querySelector("#totalRecords").textContent = records.length;
       const latestCold = getSectionHistory(records[0], "cold");
       const latestDecaf = getSectionHistory(records[0], "decaf");
-      document.querySelector("#latestCold").textContent = short(latestCold[latestCold.length - 1]?.origin);
-      document.querySelector("#latestDecaf").textContent = short(latestDecaf[latestDecaf.length - 1]?.roastDate);
+      document.querySelector("#latestCold").textContent = short(primarySectionSnapshot(latestCold)?.origin);
+      document.querySelector("#latestDecaf").textContent = short(primarySectionSnapshot(latestDecaf)?.roastDate);
       if (!records.length) {
         historyEl.innerHTML = '<div class="empty">No records saved yet.<br>Enter today\'s Cold Brew and Decaf information.</div>';
         return;
@@ -468,7 +478,7 @@
       const adjustedClass = isAdjusted ? " adjusted-recipe" : "";
       const loadedClass = selectedRevisionKey === revisionKey(record.date, prefix, index) ? " loaded-revision" : "";
       const recipeMeta = prefix === "cold"
-        ? `<div class="mini-origin">${escapeHtml(short(snapshot.origin))}</div><div class="mini-meta">EK ${escapeHtml(short(snapshot.ek))} · ${escapeHtml(short(snapshot.coffee, "0"))} g / ${escapeHtml(short(snapshot.water, "0"))} ml</div><div class="mini-meta">Steep: ${escapeHtml(short(snapshot.steep))} hr · QC: ${escapeHtml(short(snapshot.taste))}</div><div class="mini-meta">EK adj: ${escapeHtml(short(snapshot.ekAdjust))} · Grind adj: ${escapeHtml(short(snapshot.grindAdjust))}</div>`
+        ? `<div class="mini-origin">${escapeHtml(short(snapshot.origin))}</div><div class="mini-meta">Roast: ${escapeHtml(short(snapshot.roastDate))}</div><div class="mini-meta">EK ${escapeHtml(short(snapshot.ek))} · ${escapeHtml(short(snapshot.coffee, "0"))} g / ${escapeHtml(short(snapshot.water, "0"))} ml</div><div class="mini-meta">Steep: ${escapeHtml(short(snapshot.steep))} hr · QC: ${escapeHtml(short(snapshot.taste))}</div><div class="mini-meta">EK adj: ${escapeHtml(short(snapshot.ekAdjust))} · Grind adj: ${escapeHtml(short(snapshot.grindAdjust))}</div>`
         : `<div class="mini-origin">Roast ${escapeHtml(short(snapshot.roastDate))} · EK ${escapeHtml(short(snapshot.ek))}</div><div class="mini-meta">Dose ${escapeHtml(short(snapshot.dose, "0"))} g · Yield ${escapeHtml(short(snapshot.yield, "0"))} g</div>`;
       const badge = prefix === "cold" ? ratio(snapshot.coffee, snapshot.water) : `Rev ${index + 1}`;
       return `<div class="mini${adjustedClass}${loadedClass}" data-revision-card data-revision-key="${escapeHtml(revisionKey(record.date, prefix, index))}" data-load-revision="${prefix}" data-revision-index="${index}" data-revision-date="${escapeHtml(record.date)}">
@@ -506,7 +516,7 @@
       const nextHistory = history.filter((_, itemIndex) => itemIndex !== index);
       const next = { ...record, [historyKey]: nextHistory };
       if (selectedRevisionKey === revisionKey(date, prefix, index)) selectedRevisionKey = "";
-      applySectionSnapshotToRecord(next, prefix, nextHistory[nextHistory.length - 1] || null);
+      applySectionSnapshotToRecord(next, prefix, primarySectionSnapshot(nextHistory));
       const updated = await saveRecord(next);
       renderHistory(updated);
       setForm(next);
@@ -519,11 +529,11 @@
     function csvEscape(value) { return `"${String(value ?? "").replaceAll('"','""')}"`; }
     async function exportCsv() {
       const records = (await loadRecords()).sort((a,b) => a.date.localeCompare(b.date));
-      const labels = ["Date", "Preparation Time", "Section", "Revision", "Saved At", "Barista", "Origin / Roast Date", "Cup Notes", "EK Size", "Coffee / Dose g", "Water / Yield", "Steep Hours", "Serving Recipe", "Taste / QC", "EK Adjustment", "Grind Adjustment", "Adjustment Reason"];
+      const labels = ["Date", "Preparation Time", "Section", "Revision", "Saved At", "Barista", "Origin", "Roast Date", "Cup Notes", "EK Size", "Coffee / Dose g", "Water / Yield", "Steep Hours", "Serving Recipe", "Taste / QC", "EK Adjustment", "Grind Adjustment", "Adjustment Reason"];
       const rows = records.flatMap(record => ["cold", "decaf"].flatMap(prefix =>
         getSectionHistory(record, prefix).map((snapshot, index) => prefix === "cold"
-          ? [record.date, record.prepTime, "Cold Brew", index + 1, snapshot.savedAt, snapshot.barista, snapshot.origin, snapshot.notes, snapshot.ek, snapshot.coffee, snapshot.water, snapshot.steep, snapshot.serve, snapshot.taste, snapshot.ekAdjust, snapshot.grindAdjust, snapshot.adjustmentReason]
-          : [record.date, record.prepTime, "Decaf", index + 1, snapshot.savedAt, snapshot.barista, snapshot.roastDate, "", snapshot.ek, snapshot.dose, snapshot.yield, "", "", "", "", "", snapshot.adjustmentReason]
+          ? [record.date, record.prepTime, "Cold Brew", index + 1, snapshot.savedAt, snapshot.barista, snapshot.origin, snapshot.roastDate, snapshot.notes, snapshot.ek, snapshot.coffee, snapshot.water, snapshot.steep, snapshot.serve, snapshot.taste, snapshot.ekAdjust, snapshot.grindAdjust, snapshot.adjustmentReason]
+          : [record.date, record.prepTime, "Decaf", index + 1, snapshot.savedAt, snapshot.barista, "", snapshot.roastDate, "", snapshot.ek, snapshot.dose, snapshot.yield, "", "", "", "", "", snapshot.adjustmentReason]
         )
       ));
       const csv = [labels, ...rows].map(row => row.map(csvEscape).join(",")).join("\n");
@@ -532,6 +542,13 @@
     }
 
     form.addEventListener("submit", event => event.preventDefault());
+    document.querySelectorAll('input[type="date"]').forEach(input => {
+      input.addEventListener("pointerdown", () => {
+        if (typeof input.showPicker === "function") {
+          try { input.showPicker(); } catch {}
+        }
+      });
+    });
     document.querySelectorAll("[data-save-section]").forEach(button => {
       button.addEventListener("click", () => saveSection(button.dataset.saveSection));
     });
