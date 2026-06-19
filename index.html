@@ -684,6 +684,10 @@
                     <label for="b1Origin">Origin / Lot</label>
                     <input id="b1Origin" name="b1Origin" type="text" list="batchCoffeeProfiles" autocomplete="off" placeholder="Type or choose a saved coffee">
                   </div>
+                  <div class="field">
+                    <label for="b1RoastDate">Roast Date</label>
+                    <input id="b1RoastDate" name="b1RoastDate" type="date" autocomplete="off">
+                  </div>
                   <div class="field wide">
                     <label for="b1Notes">Original Bean Cup Notes</label>
                     <textarea id="b1Notes" name="b1Notes" placeholder="e.g. jasmine, peach, black tea"></textarea>
@@ -735,6 +739,10 @@
                   <div class="field wide">
                     <label for="b2Origin">Origin / Lot</label>
                     <input id="b2Origin" name="b2Origin" type="text" list="batchCoffeeProfiles" autocomplete="off" placeholder="Type or choose a saved coffee">
+                  </div>
+                  <div class="field">
+                    <label for="b2RoastDate">Roast Date</label>
+                    <input id="b2RoastDate" name="b2RoastDate" type="date" autocomplete="off">
                   </div>
                   <div class="field wide">
                     <label for="b2Notes">Original Bean Cup Notes</label>
@@ -821,10 +829,10 @@
 
     const fields = [
       "date", "brewTime",
-      "b1Barista", "b1Origin", "b1Notes", "b1Ek", "b1Coffee", "b1Taste", "b1EkAdjust", "b1GrindAdjust", "b1AdjustmentReason",
-      "b2Barista", "b2Origin", "b2Notes", "b2Ek", "b2Coffee", "b2Taste", "b2EkAdjust", "b2GrindAdjust", "b2AdjustmentReason"
+      "b1Barista", "b1Origin", "b1RoastDate", "b1Notes", "b1Ek", "b1Coffee", "b1Taste", "b1EkAdjust", "b1GrindAdjust", "b1AdjustmentReason",
+      "b2Barista", "b2Origin", "b2RoastDate", "b2Notes", "b2Ek", "b2Coffee", "b2Taste", "b2EkAdjust", "b2GrindAdjust", "b2AdjustmentReason"
     ];
-    const beanFields = ["Barista", "Origin", "Notes", "Ek", "Coffee", "Taste", "EkAdjust", "GrindAdjust", "AdjustmentReason"];
+    const beanFields = ["Barista", "Origin", "RoastDate", "Notes", "Ek", "Coffee", "Taste", "EkAdjust", "GrindAdjust", "AdjustmentReason"];
 
     function todayISO() {
       const now = new Date();
@@ -945,7 +953,7 @@
       if (!form.elements.brewTime.value) form.elements.brewTime.value = "07:30";
       ["b1", "b2"].forEach((prefix) => {
         const history = getBeanHistory(record, prefix);
-        if (history.length) setBeanForm(prefix, history[history.length - 1], false);
+        if (history.length) setBeanForm(prefix, primaryBeanSnapshot(history), false);
       });
       updateRatios();
     }
@@ -954,6 +962,7 @@
       return {
         barista: record?.[`${prefix}Barista`] || record?.barista || "",
         origin: record?.[`${prefix}Origin`] || "",
+        roastDate: record?.[`${prefix}RoastDate`] || "",
         notes: record?.[`${prefix}Notes`] || "",
         ek: record?.[`${prefix}Ek`] || "",
         coffee: record?.[`${prefix}Coffee`] || "",
@@ -969,6 +978,7 @@
       return {
         barista: form.elements[`${prefix}Barista`].value.trim(),
         origin: form.elements[`${prefix}Origin`].value.trim(),
+        roastDate: form.elements[`${prefix}RoastDate`].value.trim(),
         notes: form.elements[`${prefix}Notes`].value.trim(),
         ek: form.elements[`${prefix}Ek`].value.trim(),
         coffee: form.elements[`${prefix}Coffee`].value.trim(),
@@ -987,10 +997,19 @@
       return legacy.origin || legacy.coffee || legacy.ek ? [legacy] : [];
     }
 
+    function primaryBeanSnapshot(history) {
+      return [...history].map((snapshot, index) => ({
+        snapshot,
+        index,
+        adjusted: isAdjustedRevision(snapshot, index)
+      })).sort((a, b) => Number(b.adjusted) - Number(a.adjusted) || b.index - a.index)[0]?.snapshot || null;
+    }
+
     function setBeanForm(prefix, snapshot, updateDate = true, record = null, clearAdjustments = false) {
       const values = {
         Barista: snapshot?.barista,
         Origin: snapshot?.origin,
+        RoastDate: snapshot?.roastDate,
         Notes: snapshot?.notes,
         Ek: snapshot?.ek,
         Coffee: snapshot?.coffee,
@@ -1080,6 +1099,7 @@
             coffeeProfiles.set(origin.toLowerCase(), {
               origin,
               notes: snapshot.notes || "",
+              roastDate: snapshot.roastDate || "",
               ek: snapshot.ek || "",
               coffee: snapshot.coffee || "",
               taste: snapshot.taste || "",
@@ -1102,6 +1122,7 @@
       if (!profile) return;
       originInput.value = profile.origin;
       form.elements[`${prefix}Notes`].value = profile.notes;
+      form.elements[`${prefix}RoastDate`].value = profile.roastDate;
       form.elements[`${prefix}Ek`].value = profile.ek;
       form.elements[`${prefix}Coffee`].value = profile.coffee;
       form.elements[`${prefix}Taste`].value = profile.taste;
@@ -1130,8 +1151,8 @@
       document.querySelector("#totalRecords").textContent = records.length;
       const latestB1 = getBeanHistory(records[0], "b1");
       const latestB2 = getBeanHistory(records[0], "b2");
-      document.querySelector("#latestBatchOne").textContent = short(latestB1[latestB1.length - 1]?.origin);
-      document.querySelector("#latestBatchTwo").textContent = short(latestB2[latestB2.length - 1]?.origin);
+      document.querySelector("#latestBatchOne").textContent = short(primaryBeanSnapshot(latestB1)?.origin);
+      document.querySelector("#latestBatchTwo").textContent = short(primaryBeanSnapshot(latestB2)?.origin);
 
       if (!records.length) {
         historyEl.innerHTML = "<div class=\"empty\">No records saved yet.<br>Enter today's batch information and save the record.</div>";
@@ -1181,6 +1202,7 @@
           <div class="revision-label">${escapeHtml(savedTime)}${index === total - 1 ? " · CURRENT" : ""}</div>
           <div class="mini-origin">${escapeHtml(short(snapshot.origin))}</div>
           <div class="mini-meta">Barista: ${escapeHtml(short(snapshot.barista))}</div>
+          <div class="mini-meta">Roast: ${escapeHtml(short(snapshot.roastDate))}</div>
           <div class="mini-meta">EK ${escapeHtml(short(snapshot.ek))} · ${escapeHtml(short(snapshot.coffee, "0"))} g / ${WATER_ML} ml</div>
           <div class="mini-meta">QC: ${escapeHtml(short(snapshot.taste))}</div>
           <div class="mini-meta">EK adj: ${escapeHtml(short(snapshot.ekAdjust))}</div>
@@ -1216,7 +1238,7 @@
       const nextHistory = history.filter((_, itemIndex) => itemIndex !== index);
       const next = { ...record, [historyKey]: nextHistory };
       if (selectedRevisionKey === revisionKey(date, prefix, index)) selectedRevisionKey = "";
-      applyBeanSnapshotToRecord(next, prefix, nextHistory[nextHistory.length - 1] || null);
+      applyBeanSnapshotToRecord(next, prefix, primaryBeanSnapshot(nextHistory));
       const updated = await saveRecord(next);
       renderHistory(updated);
       setForm(next);
@@ -1233,12 +1255,12 @@
     async function exportCsv() {
       const records = (await loadRecords()).sort((a, b) => a.date.localeCompare(b.date));
       const headers = [
-        "Date", "Brew Time", "Batch", "Revision", "Saved At", "Barista", "Origin", "Cup Notes", "EK Size", "Coffee g", "Water ml", "Ratio", "Taste QC", "EK Size Adjustment", "Coffee Grind Adjustment", "Adjustment Reason"
+        "Date", "Brew Time", "Batch", "Revision", "Saved At", "Barista", "Origin", "Roast Date", "Cup Notes", "EK Size", "Coffee g", "Water ml", "Ratio", "Taste QC", "EK Size Adjustment", "Coffee Grind Adjustment", "Adjustment Reason"
       ];
       const rows = records.flatMap((record) => ["b1", "b2"].flatMap((prefix) =>
         getBeanHistory(record, prefix).map((snapshot, index) => [
           record.date, record.brewTime, batchLabel(prefix), index + 1, snapshot.savedAt,
-          snapshot.barista, snapshot.origin, snapshot.notes, snapshot.ek, snapshot.coffee, WATER_ML, ratioText(snapshot.coffee), snapshot.taste, snapshot.ekAdjust, snapshot.grindAdjust, snapshot.adjustmentReason
+          snapshot.barista, snapshot.origin, snapshot.roastDate, snapshot.notes, snapshot.ek, snapshot.coffee, WATER_ML, ratioText(snapshot.coffee), snapshot.taste, snapshot.ekAdjust, snapshot.grindAdjust, snapshot.adjustmentReason
         ])
       ));
       const csv = [headers, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n");
@@ -1252,6 +1274,14 @@
     }
 
     form.addEventListener("submit", (event) => event.preventDefault());
+
+    document.querySelectorAll('input[type="date"]').forEach((input) => {
+      input.addEventListener("pointerdown", () => {
+        if (typeof input.showPicker === "function") {
+          try { input.showPicker(); } catch {}
+        }
+      });
+    });
 
     b1Coffee.addEventListener("input", updateRatios);
     b2Coffee.addEventListener("input", updateRatios);
