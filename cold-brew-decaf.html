@@ -45,6 +45,14 @@
     .metric { padding: 14px 22px; background: #fff; }
     .metric-label { display: block; color: var(--muted); font-size: 12px; font-weight: 700; }
     .metric-value { margin-top: 4px; display: block; font-size: 20px; font-weight: 800; line-height: 1.1; overflow-wrap: anywhere; }
+    .recipe-now { display: grid; gap: 6px; }
+    .recipe-now-name { font-size: 18px; font-weight: 900; line-height: 1.1; overflow-wrap: anywhere; }
+    .recipe-now-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+    .recipe-pill {
+      display: inline-flex; min-height: 26px; align-items: center; padding: 3px 8px;
+      border: 1px solid var(--line); border-radius: 8px; background: #f5faf8;
+      color: var(--ink); font-size: 12px; font-weight: 850;
+    }
     main { width: min(1500px,100%); margin: 0 auto; padding: 22px; }
     .workspace { display: grid; grid-template-columns: minmax(0,1.08fr) minmax(350px,.92fr); gap: 18px; align-items: start; }
     .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); overflow: hidden; }
@@ -137,8 +145,20 @@
 
     <section class="summary-band" aria-label="Summary">
       <div class="metric"><span class="metric-label">Saved Records</span><span class="metric-value" id="totalRecords">0</span></div>
-      <div class="metric"><span class="metric-label">Latest Cold Brew</span><span class="metric-value" id="latestCold">-</span></div>
-      <div class="metric"><span class="metric-label">Latest Decaf</span><span class="metric-value" id="latestDecaf">-</span></div>
+      <div class="metric">
+        <span class="metric-label">Current Cold Brew</span>
+        <div class="recipe-now">
+          <span class="recipe-now-name" id="latestCold">-</span>
+          <div class="recipe-now-meta" id="latestColdMeta"></div>
+        </div>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Current Decaf</span>
+        <div class="recipe-now">
+          <span class="recipe-now-name" id="latestDecaf">-</span>
+          <div class="recipe-now-meta" id="latestDecafMeta"></div>
+        </div>
+      </div>
       <div class="metric"><span class="metric-label">Storage</span><span class="metric-value">Cloud</span></div>
     </section>
 
@@ -428,6 +448,29 @@
       form.elements.coldAdjustmentReason.value = profile.adjustmentReason;
     }
     function short(value, fallback = "-") { return value && String(value).trim() ? String(value).trim() : fallback; }
+    function currentSectionEntry(records, prefix) {
+      return records.flatMap(record => getSectionHistory(record, prefix).map((snapshot, index) => ({
+        record,
+        snapshot,
+        index
+      }))).sort((a, b) => {
+        const savedCompare = String(b.snapshot.savedAt || "").localeCompare(String(a.snapshot.savedAt || ""));
+        if (savedCompare) return savedCompare;
+        const dateCompare = String(b.record.date || "").localeCompare(String(a.record.date || ""));
+        if (dateCompare) return dateCompare;
+        return b.index - a.index;
+      })[0] || null;
+    }
+    function setCurrentSectionSummary(titleSelector, metaSelector, entry, prefix) {
+      const snapshot = entry?.snapshot || null;
+      document.querySelector(titleSelector).textContent = prefix === "cold" ? short(snapshot?.origin) : "Decaf";
+      const dose = prefix === "cold" ? snapshot?.coffee : snapshot?.dose;
+      document.querySelector(metaSelector).innerHTML = [
+        ["Roast", snapshot?.roastDate],
+        ["Grind", snapshot?.ek],
+        ["Dose", dose ? `${dose} g` : ""]
+      ].map(([label, value]) => `<span class="recipe-pill">${escapeHtml(label)} ${escapeHtml(short(value))}</span>`).join("");
+    }
     function escapeHtml(value) {
       return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
     }
@@ -439,10 +482,8 @@
       records = [...records].sort((a,b) => b.date.localeCompare(a.date));
       refreshColdCoffeeProfiles(records);
       document.querySelector("#totalRecords").textContent = records.length;
-      const latestCold = getSectionHistory(records[0], "cold");
-      const latestDecaf = getSectionHistory(records[0], "decaf");
-      document.querySelector("#latestCold").textContent = short(primarySectionSnapshot(latestCold)?.origin);
-      document.querySelector("#latestDecaf").textContent = short(primarySectionSnapshot(latestDecaf)?.roastDate);
+      setCurrentSectionSummary("#latestCold", "#latestColdMeta", currentSectionEntry(records, "cold"), "cold");
+      setCurrentSectionSummary("#latestDecaf", "#latestDecafMeta", currentSectionEntry(records, "decaf"), "decaf");
       if (!records.length) {
         historyEl.innerHTML = '<div class="empty">No records saved yet.<br>Enter today\'s Cold Brew and Decaf information.</div>';
         return;
