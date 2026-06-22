@@ -176,6 +176,39 @@
       font-size: 20px;
       font-weight: 800;
       line-height: 1.1;
+      overflow-wrap: anywhere;
+    }
+
+    .recipe-now {
+      display: grid;
+      gap: 6px;
+    }
+
+    .recipe-now-name {
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.1;
+      overflow-wrap: anywhere;
+    }
+
+    .recipe-now-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .recipe-pill {
+      display: inline-flex;
+      min-height: 26px;
+      align-items: center;
+      padding: 3px 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f5faf8;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 850;
     }
 
     main {
@@ -637,12 +670,18 @@
         <span class="metric-value" id="totalRecords">0</span>
       </div>
       <div class="metric">
-        <span class="metric-label">Latest Batch Brew +</span>
-        <span class="metric-value" id="latestBatchOne">-</span>
+        <span class="metric-label">Current Batch Brew +</span>
+        <div class="recipe-now">
+          <span class="recipe-now-name" id="latestBatchOne">-</span>
+          <div class="recipe-now-meta" id="latestBatchOneMeta"></div>
+        </div>
       </div>
       <div class="metric">
-        <span class="metric-label">Latest Batch Brew</span>
-        <span class="metric-value" id="latestBatchTwo">-</span>
+        <span class="metric-label">Current Batch Brew</span>
+        <div class="recipe-now">
+          <span class="recipe-now-name" id="latestBatchTwo">-</span>
+          <div class="recipe-now-meta" id="latestBatchTwoMeta"></div>
+        </div>
       </div>
       <div class="metric">
         <span class="metric-label">Fixed Water</span>
@@ -1136,6 +1175,30 @@
       return value && value.trim() ? value.trim() : fallback;
     }
 
+    function currentBeanEntry(records, prefix) {
+      return records.flatMap((record) => getBeanHistory(record, prefix).map((snapshot, index) => ({
+        record,
+        snapshot,
+        index
+      }))).sort((a, b) => {
+        const savedCompare = String(b.snapshot.savedAt || "").localeCompare(String(a.snapshot.savedAt || ""));
+        if (savedCompare) return savedCompare;
+        const dateCompare = String(b.record.date || "").localeCompare(String(a.record.date || ""));
+        if (dateCompare) return dateCompare;
+        return b.index - a.index;
+      })[0] || null;
+    }
+
+    function setCurrentBeanSummary(originSelector, metaSelector, entry) {
+      const snapshot = entry?.snapshot || null;
+      document.querySelector(originSelector).textContent = short(snapshot?.origin);
+      document.querySelector(metaSelector).innerHTML = [
+        ["Roast", snapshot?.roastDate],
+        ["Grind", snapshot?.ek],
+        ["Dose", snapshot?.coffee ? `${snapshot.coffee} g` : ""]
+      ].map(([label, value]) => `<span class="recipe-pill">${escapeHtml(label)} ${escapeHtml(short(value))}</span>`).join("");
+    }
+
     function escapeHtml(value) {
       return String(value ?? "")
         .replaceAll("&", "&amp;")
@@ -1149,10 +1212,8 @@
       records = [...records].sort((a, b) => b.date.localeCompare(a.date));
       refreshCoffeeProfiles(records);
       document.querySelector("#totalRecords").textContent = records.length;
-      const latestB1 = getBeanHistory(records[0], "b1");
-      const latestB2 = getBeanHistory(records[0], "b2");
-      document.querySelector("#latestBatchOne").textContent = short(primaryBeanSnapshot(latestB1)?.origin);
-      document.querySelector("#latestBatchTwo").textContent = short(primaryBeanSnapshot(latestB2)?.origin);
+      setCurrentBeanSummary("#latestBatchOne", "#latestBatchOneMeta", currentBeanEntry(records, "b1"));
+      setCurrentBeanSummary("#latestBatchTwo", "#latestBatchTwoMeta", currentBeanEntry(records, "b2"));
 
       if (!records.length) {
         historyEl.innerHTML = "<div class=\"empty\">No records saved yet.<br>Enter today's batch information and save the record.</div>";
