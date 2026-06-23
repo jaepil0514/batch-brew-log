@@ -152,7 +152,7 @@
 
     .summary-band {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 1px;
       background: var(--line);
       border-bottom: 1px solid var(--line);
@@ -209,6 +209,32 @@
       color: var(--ink);
       font-size: 12px;
       font-weight: 850;
+    }
+
+    .water-metric {
+      grid-column: 1 / -1;
+      padding: 7px 22px 9px;
+      text-align: center;
+      background: #f7fbfa;
+    }
+
+    .water-metric .metric-label {
+      display: inline;
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .water-metric .metric-value {
+      display: inline;
+      margin: 0 0 0 6px;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .hidden-count {
+      display: none;
     }
 
     main {
@@ -665,10 +691,7 @@
     </header>
 
     <section class="summary-band" aria-label="Summary">
-      <div class="metric">
-        <span class="metric-label">Saved Records</span>
-        <span class="metric-value" id="totalRecords">0</span>
-      </div>
+      <span class="hidden-count" id="totalRecords">0</span>
       <div class="metric">
         <span class="metric-label">Current Batch Brew +</span>
         <div class="recipe-now">
@@ -683,7 +706,7 @@
           <div class="recipe-now-meta" id="latestBatchTwoMeta"></div>
         </div>
       </div>
-      <div class="metric">
+      <div class="metric water-metric">
         <span class="metric-label">Fixed Water</span>
         <span class="metric-value">1000 ml</span>
       </div>
