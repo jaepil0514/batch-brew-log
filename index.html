@@ -159,15 +159,25 @@
     }
 
     .metric {
-      padding: 14px 22px;
+      padding: 18px 24px 20px;
       background: #fff;
+    }
+
+    .summary-band > .metric:not(.water-metric) {
+      border-top: 5px solid var(--green);
+      background: linear-gradient(180deg, #f2faf7 0%, #ffffff 72%);
+    }
+
+    .summary-band > .metric:not(.water-metric):nth-of-type(2) {
+      border-top-color: var(--alert);
+      background: linear-gradient(180deg, #fff8e8 0%, #ffffff 72%);
     }
 
     .metric-label {
       display: block;
       color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
+      font-size: 13px;
+      font-weight: 900;
     }
 
     .metric-value {
@@ -181,11 +191,11 @@
 
     .recipe-now {
       display: grid;
-      gap: 6px;
+      gap: 10px;
     }
 
     .recipe-now-name {
-      font-size: 18px;
+      font-size: 25px;
       font-weight: 900;
       line-height: 1.1;
       overflow-wrap: anywhere;
@@ -194,21 +204,22 @@
     .recipe-now-meta {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 2px;
+      gap: 8px;
+      margin-top: 4px;
     }
 
     .recipe-pill {
       display: inline-flex;
-      min-height: 26px;
+      min-height: 34px;
       align-items: center;
-      padding: 3px 8px;
+      padding: 5px 11px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #f5faf8;
+      background: #ffffff;
       color: var(--ink);
-      font-size: 12px;
-      font-weight: 850;
+      font-size: 15px;
+      font-weight: 900;
+      box-shadow: 0 4px 10px rgba(31, 78, 70, 0.08);
     }
 
     .water-metric {
