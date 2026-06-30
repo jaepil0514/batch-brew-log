@@ -42,16 +42,24 @@
     .btn.secondary { color: var(--ink); background: #eaf2f0; border: 1px solid var(--line); }
     .btn.danger { color: #fff; background: var(--alert); }
     .summary-band { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
-    .metric { padding: 14px 22px; background: #fff; }
-    .metric-label { display: block; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .metric { padding: 18px 24px 20px; background: #fff; }
+    .summary-band > .metric:not(.storage-metric) {
+      border-top: 5px solid var(--green);
+      background: linear-gradient(180deg, #f2faf7 0%, #ffffff 72%);
+    }
+    .summary-band > .metric:not(.storage-metric):nth-of-type(2) {
+      border-top-color: var(--alert);
+      background: linear-gradient(180deg, #fff8e8 0%, #ffffff 72%);
+    }
+    .metric-label { display: block; color: var(--muted); font-size: 13px; font-weight: 900; }
     .metric-value { margin-top: 4px; display: block; font-size: 20px; font-weight: 800; line-height: 1.1; overflow-wrap: anywhere; }
-    .recipe-now { display: grid; gap: 6px; }
-    .recipe-now-name { font-size: 18px; font-weight: 900; line-height: 1.1; overflow-wrap: anywhere; }
-    .recipe-now-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+    .recipe-now { display: grid; gap: 10px; }
+    .recipe-now-name { font-size: 25px; font-weight: 900; line-height: 1.1; overflow-wrap: anywhere; }
+    .recipe-now-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
     .recipe-pill {
-      display: inline-flex; min-height: 26px; align-items: center; padding: 3px 8px;
-      border: 1px solid var(--line); border-radius: 8px; background: #f5faf8;
-      color: var(--ink); font-size: 12px; font-weight: 850;
+      display: inline-flex; min-height: 34px; align-items: center; padding: 5px 11px;
+      border: 1px solid var(--line); border-radius: 8px; background: #ffffff;
+      color: var(--ink); font-size: 15px; font-weight: 900; box-shadow: 0 4px 10px rgba(31, 78, 70, 0.08);
     }
     .storage-metric {
       grid-column: 1 / -1;
