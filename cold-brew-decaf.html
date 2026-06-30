@@ -41,7 +41,7 @@
     .btn { min-height: 36px; padding: 0 12px; border-radius: 8px; color: #fff; background: var(--green); font-weight: 700; white-space: nowrap; }
     .btn.secondary { color: var(--ink); background: #eaf2f0; border: 1px solid var(--line); }
     .btn.danger { color: #fff; background: var(--alert); }
-    .summary-band { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
+    .summary-band { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
     .metric { padding: 14px 22px; background: #fff; }
     .metric-label { display: block; color: var(--muted); font-size: 12px; font-weight: 700; }
     .metric-value { margin-top: 4px; display: block; font-size: 20px; font-weight: 800; line-height: 1.1; overflow-wrap: anywhere; }
@@ -53,6 +53,26 @@
       border: 1px solid var(--line); border-radius: 8px; background: #f5faf8;
       color: var(--ink); font-size: 12px; font-weight: 850;
     }
+    .storage-metric {
+      grid-column: 1 / -1;
+      padding: 7px 22px 9px;
+      text-align: center;
+      background: #f7fbfa;
+    }
+    .storage-metric .metric-label {
+      display: inline;
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .storage-metric .metric-value {
+      display: inline;
+      margin: 0 0 0 6px;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .hidden-count { display: none; }
     main { width: min(1500px,100%); margin: 0 auto; padding: 22px; }
     .workspace { display: grid; grid-template-columns: minmax(0,1.08fr) minmax(350px,.92fr); gap: 18px; align-items: start; }
     .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); overflow: hidden; }
@@ -144,7 +164,7 @@
     </header>
 
     <section class="summary-band" aria-label="Summary">
-      <div class="metric"><span class="metric-label">Saved Records</span><span class="metric-value" id="totalRecords">0</span></div>
+      <span class="hidden-count" id="totalRecords">0</span>
       <div class="metric">
         <span class="metric-label">Current Cold Brew</span>
         <div class="recipe-now">
@@ -159,7 +179,7 @@
           <div class="recipe-now-meta" id="latestDecafMeta"></div>
         </div>
       </div>
-      <div class="metric"><span class="metric-label">Storage</span><span class="metric-value">Cloud</span></div>
+      <div class="metric storage-metric"><span class="metric-label">Storage</span><span class="metric-value">Cloud</span></div>
     </section>
 
     <main>
