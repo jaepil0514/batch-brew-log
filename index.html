@@ -1225,7 +1225,7 @@
 
     function setCurrentBeanSummary(originSelector, metaSelector, entry) {
       const snapshot = entry?.snapshot || null;
-      // A saved adjustment becomes the active grind and dose shown at a glance.
+      // Saved adjustment values become the active grind and dose shown at a glance.
       const currentGrind = snapshot?.ekAdjust?.trim() || snapshot?.ek;
       const currentDose = snapshot?.grindAdjust?.trim() || snapshot?.coffee;
       document.querySelector(originSelector).textContent = short(snapshot?.origin);
