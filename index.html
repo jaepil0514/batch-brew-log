@@ -1225,11 +1225,13 @@
 
     function setCurrentBeanSummary(originSelector, metaSelector, entry) {
       const snapshot = entry?.snapshot || null;
+      const currentGrind = snapshot?.ekAdjust?.trim() || snapshot?.ek;
+      const currentDose = snapshot?.grindAdjust?.trim() || snapshot?.coffee;
       document.querySelector(originSelector).textContent = short(snapshot?.origin);
       document.querySelector(metaSelector).innerHTML = [
         ["Roast", snapshot?.roastDate],
-        ["Grind", snapshot?.ek],
-        ["Dose", snapshot?.coffee ? `${snapshot.coffee} g` : ""]
+        ["Grind", currentGrind],
+        ["Dose", currentDose ? `${currentDose} g` : ""]
       ].map(([label, value]) => `<span class="recipe-pill">${escapeHtml(label)} ${escapeHtml(short(value))}</span>`).join("");
     }
 
